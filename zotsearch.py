@@ -10,9 +10,15 @@ from pyzotero import zotero
 import pypdfium2 as pdfium
 
 
-# required download nltk
-# nltk.download('punkt')
-# nltk.download('punkt_tab')
+# NLTK Data Check (optional, but good practice)
+try:
+    nltk.data.find('tokenizers/punkt')
+except nltk.downloader.DownloadError:
+    print("NLTK 'punkt' tokenizer not found. Downloading...")
+    nltk.download('punkt')
+except LookupError: # If it's found but somehow nltk.download('punkt') is still needed
+    print("NLTK 'punkt' tokenizer seems to be missing or corrupted. Downloading...")
+    nltk.download('punkt')
 
 
 # --- Configuration ---
@@ -25,6 +31,7 @@ LIBRARY_TYPE = 'user' # Or 'group' if it's a group library
 # Example: 'D:\\ZoteroAttachments' or '/Users/yourname/ZoteroAttachments'
 BASE_ATTACHMENT_PATH = '/Users/francisco/Library/CloudStorage/OneDrive-UniversitaetBern/ZoteroAttachments' # <--- USER MUST SET THIS
 max_results_stage1= 100 # set the maximum results returned, capped at 100 by default.
+CONTEXT_SENTENCE_WINDOW = 2 # Number of sentences before AND after the sentence with the term
 
 
 # --- Helper Functions (extract_text_from_pdf_bytes and find_context remain the same) ---
@@ -72,6 +79,29 @@ def find_context_sentences(text, term, sentence_window=3):
     
     return contexts
 
+def find_context_sentences_detailed(sentences_list, term, sentence_window=CONTEXT_SENTENCE_WINDOW):
+    """
+    Finds a term in a list of pre-tokenized sentences and returns data about
+    the surrounding sentence window.
+    Returns a list of dictionaries, each with 'term' and 'sentence_indices' (start_idx, end_idx_inclusive).
+    """
+    contexts_data = []
+    # Use whole-word matching for the search term
+    term_pattern_search = re.compile(r'\b' + re.escape(term) + r'\b', re.IGNORECASE)
+
+    for i, sentence in enumerate(sentences_list):
+        if term_pattern_search.search(sentence):
+            start_idx = max(0, i - sentence_window)
+            # end_idx is the index *after* the last sentence in the window
+            end_idx_exclusive = min(len(sentences_list), i + sentence_window + 1)
+            
+            contexts_data.append({
+                'term': term,
+                # Store sentence indices as (inclusive_start, inclusive_end)
+                'sentence_indices': (start_idx, end_idx_exclusive - 1),
+            })
+    return contexts_data
+
 def find_context(text, term, window_chars=300): 
     """Finds a term in text and returns a snippet around it."""
     contexts = []
@@ -109,7 +139,7 @@ def generate_zotero_url(item_key, pdf_key=None, page_number=None):
 
 def search_zotero_and_full_text(
     zot_conn,
-    base_attachment_dir, # New parameter
+    base_attachment_dir,
     metadata_search_terms,
     full_text_search_terms,
     max_results_stage1=100
@@ -128,11 +158,35 @@ def search_zotero_and_full_text(
     print(f"Found {len(items)} references matching metadata search.")
     all_findings = []
 
-    for item in items:
+    for item_index, item in enumerate(items): # Added item_index for progress
         item_data = item.get('data', {})
         item_title = item_data.get('title', 'N/A')
         item_key = item_data.get('key', 'N/A')
-        print(f"\nProcessing: '{item_title}' (Key: {item_key})")
+        # print(f"\nProcessing item {item_index + 1}/{len(items)}: '{item_title}' (Key: {item_key})")
+        # Simplified print statement
+        print(f"\n[{item_index + 1}/{len(items)}] Processing: '{item_title}'")
+
+
+        # Get common metadata once per item
+        authors = item_data.get('creators', [])
+        author_names = []
+        for creator in authors:
+            if creator.get('creatorType') == 'author':
+                first_name = creator.get('firstName', '')
+                last_name = creator.get('lastName', '')
+                if first_name and last_name:
+                    author_names.append(f"{last_name}, {first_name}")
+                elif last_name:
+                    author_names.append(last_name)
+        authors_str = '; '.join(author_names) if author_names else 'N/A'
+
+        publication_year_raw = item_data.get('date', 'N/A')
+        publication_year = publication_year_raw
+        if publication_year_raw != 'N/A' and len(publication_year_raw) >= 4:
+            year_match = re.search(r'\b(1[89]|20)\d{2}\b', publication_year_raw) # More robust year match
+            publication_year = year_match.group(0) if year_match else publication_year_raw
+
+        item_url = generate_zotero_url(item_key) # Generate once per item
 
         try:
             attachments = zot_conn.children(item_key)
@@ -147,63 +201,53 @@ def search_zotero_and_full_text(
         ]
 
         if not pdf_attachments:
-            print("  No PDF attachments found for this item (checking linkMode next).")
-            continue
+            # print("  No PDF attachments found for this item.") # Already handled if checking linkMode
+            pass # Continue to next item if no relevant attachments
+
+        found_text_in_item = False # Flag to print "Stage 2" header only if relevant PDFs are processed
 
         for pdf_att in pdf_attachments:
             pdf_att_data = pdf_att.get('data', {})
             pdf_key = pdf_att_data.get('key')
             link_mode = pdf_att_data.get('linkMode')
-            pdf_filename_display = pdf_att_data.get('filename', f"{pdf_key}.pdf") # Default filename
+            pdf_filename_display = pdf_att_data.get('filename', f"{pdf_key}.pdf")
+
+            text_by_page = None # Initialize
 
             if link_mode == 'linked_file':
                 relative_path_from_zotero_raw = pdf_att_data.get('path')
                 if not relative_path_from_zotero_raw:
-                    print(f"    Attachment {pdf_key} is a linked file but has no path information in Zotero.")
+                    # print(f"    Attachment {pdf_key} is a linked file but has no path information in Zotero.")
                     continue
 
-                # --- FIX: Strip "attachments:" prefix if present ---
                 path_prefix_to_strip = "attachments:"
                 actual_relative_path = relative_path_from_zotero_raw
                 if relative_path_from_zotero_raw.startswith(path_prefix_to_strip):
                     actual_relative_path = relative_path_from_zotero_raw[len(path_prefix_to_strip):]
-                    # print(f"    Stripped '{path_prefix_to_strip}' prefix. Original: '{relative_path_from_zotero_raw}', Cleaned: '{actual_relative_path}'")
-                # --- END OF FIX ---
-
-                # Construct the full local path using the cleaned path
-                full_local_path = os.path.normpath(os.path.join(base_attachment_dir, actual_relative_path))
                 
-                # Update pdf_filename_display if it was generic and we have a better one from path
+                full_local_path = os.path.normpath(os.path.join(base_attachment_dir, actual_relative_path))
                 if pdf_filename_display == f"{pdf_key}.pdf":
                     pdf_filename_display = os.path.basename(full_local_path)
 
-
-                print(f"  Found linked PDF attachment: '{pdf_att_data.get('filename', pdf_filename_display)}' (Raw path from Zotero: '{relative_path_from_zotero_raw}')")
-                print(f"    Cleaned relative path: '{actual_relative_path}'")
-                print(f"    Attempting to access at: {full_local_path}")
-
-
+                # print(f"  Found linked PDF: '{pdf_filename_display}'")
                 if not os.path.exists(full_local_path):
-                    print(f"    ERROR: PDF file not found at {full_local_path}")
-                    print(f"    Please check your BASE_ATTACHMENT_PATH ('{base_attachment_dir}') and Zotero's path for this item.")
-                    print(f"    Zotero stores raw path: '{relative_path_from_zotero_raw}' for this attachment.")
+                    print(f"    ERROR: PDF file not found at {full_local_path} for item '{item_title}'")
                     continue
                 
                 try:
-                    print(f"    Extracting text from PDF: {pdf_filename_display}...")
+                    # print(f"    Extracting text from PDF: {pdf_filename_display}...")
                     text_by_page = extract_text_from_pdf_bytes(full_local_path)
                 except Exception as e:
                     print(f"    Error reading or processing local PDF {full_local_path}: {e}")
                     continue
 
             elif link_mode == 'imported_file':
-                # This part remains the same
-                print(f"  Found imported PDF: '{pdf_filename_display}'")
-                print(f"    Downloading PDF (Key: {pdf_key})...")
+                # print(f"  Found imported PDF: '{pdf_filename_display}'")
+                # print(f"    Downloading PDF (Key: {pdf_key})...")
                 try:
                     pdf_bytes_content = zot_conn.file(pdf_key)
                     if not pdf_bytes_content:
-                        print("    Failed to download PDF or PDF is empty.")
+                        # print("    Failed to download PDF or PDF is empty.")
                         continue
                     pdf_bytes_io = io.BytesIO(pdf_bytes_content)
                     text_by_page = extract_text_from_pdf_bytes(pdf_bytes_io)
@@ -211,59 +255,125 @@ def search_zotero_and_full_text(
                     print(f"    Error downloading or processing imported PDF {pdf_key}: {e}")
                     continue
             else:
-                print(f"    Skipping attachment {pdf_key} with unhandled linkMode: '{link_mode}' or it's not a PDF.")
+                # print(f"    Skipping attachment {pdf_key} with unhandled linkMode: '{link_mode}' or it's not a PDF.")
                 continue
 
             if not text_by_page:
-                print(f"    Could not extract text from PDF: {pdf_filename_display}")
+                # print(f"    Could not extract text from PDF: {pdf_filename_display}")
                 continue
+            
+            if not found_text_in_item: # Print Stage 2 header only once per item if we get this far
+                print(f"  --- Stage 2: Searching PDF(s) for '{item_title}' for: '{', '.join(full_text_search_terms)}' ---")
+                found_text_in_item = True
 
-            print(f"    --- Stage 2: Searching PDF text for: '{', '.join(full_text_search_terms)}' ---")
             for page_num, page_text in text_by_page.items():
+                if not page_text.strip(): # Skip empty pages
+                    continue
+
+                all_page_sentences = nltk.sent_tokenize(page_text)
+                if not all_page_sentences:
+                    continue
+
+                page_hits = [] # Stores {'term': term, 'sentence_indices': (start, end_inclusive)}
                 for term in full_text_search_terms:
-                    contexts = find_context_sentences(page_text, term)
-                    if contexts:
-                        for context_snippet in contexts:
-                            # Get additional metadata
-                            authors = item_data.get('creators', [])
-                            author_names = []
-                            for creator in authors:
-                                if creator.get('creatorType') == 'author':
-                                    first_name = creator.get('firstName', '')
-                                    last_name = creator.get('lastName', '')
-                                    if first_name and last_name:
-                                        author_names.append(f"{last_name}, {first_name}")
-                                    elif last_name:
-                                        author_names.append(last_name)
-                            
-                            authors_str = '; '.join(author_names) if author_names else 'N/A'
-                            publication_year = item_data.get('date', 'N/A')
-                            if publication_year != 'N/A' and len(publication_year) >= 4:
-                                # Extract year from date string
-                                year_match = re.search(r'\b(19|20)\d{2}\b', publication_year)
-                                publication_year = year_match.group(0) if year_match else publication_year
-                            
-                            # Generate Zotero URLs
-                            item_url = generate_zotero_url(item_key)
-                            pdf_url = generate_zotero_url(item_key, pdf_key, page_num)
-                            
-                            finding = {
-                                'reference_title': item_title,
-                                'authors': authors_str,
-                                'publication_year': publication_year,
-                                'reference_key': item_key,
-                                'pdf_filename': pdf_filename_display,
-                                'pdf_key': pdf_key,
-                                'page_number': page_num,
-                                'search_term_found': term,
-                                'context': context_snippet.replace('***', ''),  # Remove highlighting for CSV
-                                'context_highlighted': context_snippet,  # Keep highlighted version for console
-                                'zotero_item_url': item_url,
-                                'zotero_pdf_url': pdf_url,
-                                'search_timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                            }
-                            all_findings.append(finding)
-                            print(f"      Found '{term}' on page {page_num}")
+                    hits_for_term = find_context_sentences_detailed(all_page_sentences, term)
+                    page_hits.extend(hits_for_term)
+                
+                if not page_hits:
+                    continue
+
+                # Sort hits by start sentence index, then by end sentence index
+                page_hits.sort(key=lambda x: (x['sentence_indices'][0], x['sentence_indices'][1]))
+
+                # Merge overlapping/adjacent sentence windows
+                merged_intervals = []
+                if not page_hits: # Should not happen due to check above, but defensive
+                    continue
+
+                # Initialize with the first hit
+                current_interval_info = {
+                    'start_sentence_idx': page_hits[0]['sentence_indices'][0],
+                    'end_sentence_idx': page_hits[0]['sentence_indices'][1],
+                    'terms': {page_hits[0]['term']}
+                }
+
+                for i in range(1, len(page_hits)):
+                    hit = page_hits[i]
+                    hit_start_idx, hit_end_idx = hit['sentence_indices']
+
+                    # Check for overlap: if hit_start_idx is within or adjacent to current interval
+                    # Merge if hit_start_idx <= current_interval_info['end_sentence_idx'] + 1 (adjacency included)
+                    if hit_start_idx <= current_interval_info['end_sentence_idx'] + 1:
+                        current_interval_info['end_sentence_idx'] = max(current_interval_info['end_sentence_idx'], hit_end_idx)
+                        current_interval_info['terms'].add(hit['term'])
+                    else:
+                        # No overlap, current interval is complete. Add it to merged_intervals.
+                        start_idx = current_interval_info['start_sentence_idx']
+                        end_idx_inclusive = current_interval_info['end_sentence_idx']
+                        context_text_list = all_page_sentences[start_idx : end_idx_inclusive + 1]
+                        
+                        merged_intervals.append({
+                            'sentence_indices': (start_idx, end_idx_inclusive),
+                            'terms_found': sorted(list(current_interval_info['terms'])),
+                            'context_text_unhighlighted': ' '.join(context_text_list)
+                        })
+                        # Start a new interval
+                        current_interval_info = {
+                            'start_sentence_idx': hit_start_idx,
+                            'end_sentence_idx': hit_end_idx,
+                            'terms': {hit['term']}
+                        }
+                
+                # Add the last processed interval
+                if current_interval_info: # Ensure it's not None (if page_hits was empty initially)
+                    start_idx = current_interval_info['start_sentence_idx']
+                    end_idx_inclusive = current_interval_info['end_sentence_idx']
+                    context_text_list = all_page_sentences[start_idx : end_idx_inclusive + 1]
+                    merged_intervals.append({
+                        'sentence_indices': (start_idx, end_idx_inclusive),
+                        'terms_found': sorted(list(current_interval_info['terms'])),
+                        'context_text_unhighlighted': ' '.join(context_text_list)
+                    })
+
+                # Now, for each merged interval, create a finding
+                for interval_data in merged_intervals:
+                    unhighlighted_ctx = interval_data['context_text_unhighlighted']
+                    terms_in_this_context = interval_data['terms_found']
+
+                    # Create highlighted context
+                    highlighted_ctx = unhighlighted_ctx
+                    # Sort terms by length (descending) to handle overlapping terms correctly (e.g., "logy" and "methodology")
+                    for term_to_highlight in sorted(terms_in_this_context, key=len, reverse=True):
+                        # Use word boundaries for highlighting to avoid partial highlights within words
+                        term_pattern = re.compile(r'\b(' + re.escape(term_to_highlight) + r')\b', re.IGNORECASE)
+                        # Apply highlighting to the current state of highlighted_ctx
+                        highlighted_ctx = term_pattern.sub(lambda m: f"***{m.group(1)}***", highlighted_ctx)
+                    
+                    pdf_page_url = generate_zotero_url(item_key, pdf_key, page_num)
+
+                    finding = {
+                        'reference_title': item_title,
+                        'authors': authors_str,
+                        'publication_year': publication_year,
+                        'reference_key': item_key,
+                        'pdf_filename': pdf_filename_display,
+                        'pdf_key': pdf_key,
+                        'page_number': page_num,
+                        'search_term_found': ", ".join(terms_in_this_context), # Combined terms
+                        'context': unhighlighted_ctx,
+                        'context_highlighted': highlighted_ctx,
+                        'zotero_item_url': item_url, # Already generated
+                        'zotero_pdf_url': pdf_page_url,
+                        'search_timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                    all_findings.append(finding)
+                    # More concise found message
+                    print(f"      Found '{', '.join(terms_in_this_context)}' on page {page_num} in '{pdf_filename_display}'")
+        
+        if not pdf_attachments and not found_text_in_item : # If no PDFs or no text processed for this item
+             print("  No processable PDF attachments found for this item.")
+
+
     return all_findings
 
 def save_results_to_csv(results, filename):
