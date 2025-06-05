@@ -37,7 +37,21 @@ Examples:
   python main.py --md results.md
   python main.py --csv results.csv --csv-only
   python main.py --markdown results.md --markdown-only
+  python main.py --zotero "machine learning health" --fulltext "algorithm, bias"
+  python main.py --zotero "AI ethics" --fulltext "privacy, fairness" --csv results.csv
             """
+        )
+
+        parser.add_argument(
+            '--zotero',
+            type=str,
+            help='Zotero metadata search terms (e.g., "machine learning health")'
+        )
+
+        parser.add_argument(
+            '--fulltext',
+            type=str,
+            help='Full-text search terms, comma-separated (e.g., "algorithm, bias")'
         )
         
         parser.add_argument(
@@ -237,8 +251,18 @@ Examples:
             # Print configuration info
             print_config_info(config)
             
-            # Get search terms
-            metadata_query, full_text_terms = self.get_search_terms_interactive()
+            # Get search terms: prefer CLI args, else interactive
+            if args.zotero and args.fulltext:
+                metadata_query = args.zotero.strip()
+                full_text_terms = [term.strip() for term in args.fulltext.split(',') if term.strip()]
+                if not metadata_query:
+                    print("Error: --zotero argument cannot be empty.")
+                    return 1
+                if not full_text_terms:
+                    print("Error: --fulltext argument must provide at least one term.")
+                    return 1
+            else:
+                metadata_query, full_text_terms = self.get_search_terms_interactive()
             
             # Create and run search engine
             search_engine = ZoteroSearchEngine(config)
@@ -280,4 +304,10 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    print(
+        "\n[DEPRECATION WARNING]\n"
+        "Direct execution of 'cli.py' as a script is deprecated and will be removed in a future release.\n"
+        "Please use the package interface instead:\n"
+        "    python -m zotsearch\n"
+    )
     sys.exit(main())

@@ -1,0 +1,99 @@
+reference_title,authors,publication_year,reference_key,pdf_filename,pdf_key,page_number,search_term_found,context,zotero_item_url,zotero_pdf_url,search_timestamp
+Measurement Invariance in Longitudinal Bifactor Models: Review and Application Based on the p Factor,"Neufeld, Sharon A. S.; St Clair, Michelle; Brodbeck, Jeannette; Wilkinson, Paul O.; Goodyer, Ian M.; Jones, Peter B.",2024,73ZD2D7S,KGDL8AWR.pdf,KGDL8AWR,16,consistency,"Conclusion
+Our review and empirical example highlights the limitations in longitudinal MI testing of bifactor models. Nonetheless, using the guidelines advocated herein to
+establish MI allows findings from bifactor models to be
+more confidently interpreted. Such increased clarity will
+help improve comparability and consistency across the
+literature pertaining to these highly utilized models. Authors’ Note
+Ian M. Goodyer and Peter B. Jones are the joint last authors. Declaration of Conflicting Interests
+The author(s) declared no potential conflicts of interest with
+respect to the research, authorship, and/or publication of this
+article.",zotero://select/library/items/73ZD2D7S,zotero://open-pdf/library/items/KGDL8AWR?page=16,2025-06-05 12:19:37
+Evaluating bifactor models: Calculating and interpreting statistical indices,"Rodriguez, Anthony; Reise, Steven P.; Haviland, Mark G.",2016,W4UAGYKX,G2AY4U6R.pdf,G2AY4U6R,2,consistency,"In factor analytic terms, this is known as percent of
+common variance and labeled, “communality.” The third box
+represents an item’s reliable variance that is unique to each item
+(not shared with any other item), and the final box is variance
+attributable to random error. In factor analysis, specific variance
+and error variance cannot be separated, typically, and thus are
+combined in the “uniqueness” term. What this means is that general, group, and specific sources
+of variance represent systematic, repeatable, and thus reliable
+sources of variance, whereas internal consistency estimates of
+reliability either lump the specific variance in the error term of
+the classic true plus error score model (X  T  E) or in the
+uniqueness in the common plus uniqueness factor model (X 
+C  U). As such, internal consistency indices are said to be
+negatively biased and only will equal the reliability when there
+is no item specific variance (Bentler, 2009). Note, also, that
+understanding the transition from the X  T  E true score
+model to the X  C  U common factor model is critical in
+recognizing distinctions between coefficient alpha and “modelbased’ reliability indices such as coefficient omega. A second important aspect of the graphic is that the bifactor
+model, which contains general and group sources of common
+variance, clearly, is multidimensional (i.e., multiple common
+sources of item variance and between item covariance).",zotero://select/library/items/W4UAGYKX,zotero://open-pdf/library/items/G2AY4U6R?page=2,2025-06-05 12:19:37
+Evaluating bifactor models: Calculating and interpreting statistical indices,"Rodriguez, Anthony; Reise, Steven P.; Haviland, Mark G.",2016,W4UAGYKX,G2AY4U6R.pdf,G2AY4U6R,2,consistency,"In turn, the percent of observed variance in a unit-weighted
+composite score has two sources of systematic influence (i.e., X 
+TGEN  TGRP  E or X  CGEN  CGRP  U). This, however,
+does not imply that the “construct is multidimensional” or that the
+construct is a “blend of dimensions,” but rather, merely that a
+unit-weighted composite score has more than one systematic
+source of variance. This not only complicates the interpretation of
+the composite score, it also complicates the interpretation of internal consistency indices such as alpha. One important goal,
+however, of the omega indices described below is to separate out
+the reliable variance in a composite attributable to either general or
+group factors. Example Data
+For the running example, we use the standardized factor loadings from a bifactor model reported in Osman et al.",zotero://select/library/items/W4UAGYKX,zotero://open-pdf/library/items/G2AY4U6R?page=2,2025-06-05 12:19:37
+Evaluating bifactor models: Calculating and interpreting statistical indices,"Rodriguez, Anthony; Reise, Steven P.; Haviland, Mark G.",2016,W4UAGYKX,G2AY4U6R.pdf,G2AY4U6R,3,consistency,"Using the Example Data Factor Loadings
+Coefficient Alpha
+Although coefficient alpha (Cronbach, 1951) is the most universally reported index of internal consistency reliability, it also is
+the most reviled (Bentler, 2009; Revelle & Zinbarg, 2009; Sijtsma,
+2009) and misunderstood (Cortina, 1993; Dunn, Baguley, &
+Brunsden, 2014; John & Soto, 2007; Schmitt, 1996; Yang &
+Green, 2011). To fully appreciate the omega indices derived from
+bifactor models, we begin with the basics and limits of coefficient
+alpha. When coefficient alpha is computed based on a correlation
+matrix, and not a covariance matrix, it is “standardized coefficient
+alpha.” It is an estimate of the percent of reliable variance in the
+unit-weighted total score if the items first were standardized and
+then added together to form a composite score.",zotero://select/library/items/W4UAGYKX,zotero://open-pdf/library/items/G2AY4U6R?page=3,2025-06-05 12:19:37
+Evaluating bifactor models: Calculating and interpreting statistical indices,"Rodriguez, Anthony; Reise, Steven P.; Haviland, Mark G.",2016,W4UAGYKX,G2AY4U6R.pdf,G2AY4U6R,4,consistency,"For the PS scale, for example, we would need only the general and
+group factor loadings and error variances for the first 12 items. Using this procedure, the standardized alpha values for the four
+subscales are: .95 for PS, .88 for HA, .96 for SA, and .93 for SP. These (internal consistency) reliability values for the subscales,
+too, would be considered laudatory in an applied context. Again,
+however, we ask what do these values actually represent when the
+subscale scores clearly have two common sources of variance,
+general and group factors? We are by no means the first authors to express concerns
+regarding the interpretation and value of coefficient alpha; but
+again, a summary of these concerns is necessary to understand
+what one gains by using bifactor model-derived indices.",zotero://select/library/items/W4UAGYKX,zotero://open-pdf/library/items/G2AY4U6R?page=4,2025-06-05 12:19:37
+Evaluating bifactor models: Calculating and interpreting statistical indices,"Rodriguez, Anthony; Reise, Steven P.; Haviland, Mark G.",2016,W4UAGYKX,G2AY4U6R.pdf,G2AY4U6R,9,consistency,"Alpha assumes
+essential tau equivalence (equal factor loadings) and depends on
+the average item intercorrelation and the number of items (as these
+values increase alpha also increases). In the MASC, alpha was
+very high for total scores, as well as for the four subscale scores:
+.99 for Anxiety, .95 for PS, .88 for HA, .96 for SA, and .93 for SP. This high internal consistency is partly attributable to many content redundant items within group factors, which inflate correlations. To what degree the correlation between content-similar items is
+due to a common trait or traits(s) versus an artifact of just asking
+the question more than once is a complicated topic, which would
+require a separate paper. For our present purposes, we suggest
+checking this by estimating a series of models, each time eliminating one or two items from sets that appear overly content
+redundant.",zotero://select/library/items/W4UAGYKX,zotero://open-pdf/library/items/G2AY4U6R?page=9,2025-06-05 12:19:37
+Evaluating bifactor models: Calculating and interpreting statistical indices,"Rodriguez, Anthony; Reise, Steven P.; Haviland, Mark G.",2016,W4UAGYKX,G2AY4U6R.pdf,G2AY4U6R,9,consistency,"Omega is the model-based
+analogue of coefficient alpha, except that it is appropriate for
+congeneric tests (varying factor loadings). Its value is influenced
+by all modeled sources of common variance. Like any internal
+consistency estimate, it is a negatively biased estimate of reliability
+because it includes item specific variance as error (Bentler, 2009). In the MASC, omega was very high for both total and subscale
+scores: .98, .96, .90, .97, and .93, respectively. The same caveat
+about item content redundancy expressed for alpha, applies equally
+to interpreting omega.",zotero://select/library/items/W4UAGYKX,zotero://open-pdf/library/items/G2AY4U6R?page=9,2025-06-05 12:19:37
+Evaluating bifactor models: Calculating and interpreting statistical indices,"Rodriguez, Anthony; Reise, Steven P.; Haviland, Mark G.",2016,W4UAGYKX,G2AY4U6R.pdf,G2AY4U6R,11,consistency,"Journal of Modern Applied Statistical Methods, 10, 583–598. Bentler, P. M. (2009). Alpha, dimension-free, and model-based internal
+consistency reliability. Psychometrika, 74, 137–143. http://dx.doi.org/10
+.1007/s11336-008-9100-1
+Bonifay, W. E., Reise, S. P., Scheines, R., & Meijer, R. R. (2015).",zotero://select/library/items/W4UAGYKX,zotero://open-pdf/library/items/G2AY4U6R?page=11,2025-06-05 12:19:37
+Evaluating bifactor models: Calculating and interpreting statistical indices,"Rodriguez, Anthony; Reise, Steven P.; Haviland, Mark G.",2016,W4UAGYKX,G2AY4U6R.pdf,G2AY4U6R,11,consistency,"Psychometrika, 16, 297–334. http://dx.doi.org/10.1007/BF02310555
+Dunn, T. J., Baguley, T., & Brunsden, V. (2014). From alpha to omega: A
+practical solution to the pervasive problem of internal consistency estimation. British Journal of Psychology, 105, 399–412. http://dx.doi.org/
+10.1111/bjop.12046
+Gignac, G. E., Palmer, B. R., & Stough, C. (2007).",zotero://select/library/items/W4UAGYKX,zotero://open-pdf/library/items/G2AY4U6R?page=11,2025-06-05 12:19:37
+Riskier Tests of the Validity of the Bifactor Model of Psychopathology,"Watts, Ashley L.; Poore, Holly E.; Waldman, Irwin D.",2019,JIL8DKHW,2BFRCDII.pdf,2BFRCDII,18,consistency,"Levin-Aspenson, H. F., Watson, D., Clark, L. A., & Zimmerman, M. 
+(2018, September). What is the general factor of psychopathology? Consistency of the p factor across samples. Poster presented at the annual meeting of the Society 
+for Research in Psychopathology, Indianapolis, IN. Loehlin, J. C. (2004).",zotero://select/library/items/JIL8DKHW,zotero://open-pdf/library/items/2BFRCDII?page=18,2025-06-05 12:19:38

@@ -1,3 +1,25 @@
+Metadata-Version: 2.4
+Name: zotsearch
+Version: 0.2.1
+Summary: Enhanced Zotero Library and Full-Text PDF Search
+Author: ZotSearch Contributors
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Researchers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Requires-Dist: pyzotero>=1.5.0
+Requires-Dist: pypdfium2>=4.0.0
+Requires-Dist: nltk>=3.8
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
 # ZotSearch - Enhanced Zotero Library and Full-Text PDF Search
 
 ZotSearch is a Python package that enables users to search their local Zotero library using the API and then search for full-text content within PDFs. It includes multiple output formats (CSV and Markdown) and Zotero URL integration for direct access to search results.

@@ -6,7 +6,7 @@ PDF full-text search, and result processing.
 """
 
 import nltk
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from pyzotero import zotero
 
 from .config import ZotSearchConfig
@@ -55,14 +55,16 @@ class ZoteroSearchEngine:
             print(f"Failed to connect to Zotero API: {e}")
             return False
     
-    def search_zotero_and_full_text(self, metadata_search_terms: str, 
-                                   full_text_search_terms: List[str]) -> List[Dict[str, Any]]:
+    def search_zotero_and_full_text(self, metadata_search_terms: str,
+                                   full_text_search_terms: List[str],
+                                   verbose: bool = False) -> List[Dict[str, Any]]:
         """
         Search Zotero metadata and full-text PDFs.
         
         Args:
             metadata_search_terms: Terms to search in Zotero metadata
             full_text_search_terms: Terms to search in PDF full text
+            verbose: If True, print detailed output. If False, print summary only.
             
         Returns:
             List of finding dictionaries
@@ -89,8 +91,11 @@ class ZoteroSearchEngine:
             print(f"\n[{item_index + 1}/{len(items)}] Processing: '{item_title}'")
             
             # Process PDFs for this item
-            findings = self._process_item_pdfs(item_data, full_text_search_terms)
+            findings, summary_lines = self._process_item_pdfs(item_data, full_text_search_terms, verbose=verbose)
             all_findings.extend(findings)
+            if not verbose and summary_lines:
+                for line in summary_lines:
+                    print(line)
         
         return all_findings
     
@@ -122,17 +127,19 @@ class ZoteroSearchEngine:
             print(f"Error during Zotero metadata search: {e}")
             return []
     
-    def _process_item_pdfs(self, item_data: Dict[str, Any], 
-                          full_text_terms: List[str]) -> List[Dict[str, Any]]:
+    def _process_item_pdfs(self, item_data: Dict[str, Any],
+                          full_text_terms: List[str],
+                          verbose: bool = False) -> Tuple[List[Dict[str, Any]], List[str]]:
         """
         Process PDFs for a single Zotero item.
         
         Args:
             item_data: Zotero item data
             full_text_terms: Terms to search in PDF text
+            verbose: If True, print detailed output. If False, print summary only.
             
         Returns:
-            List of findings for this item
+            Tuple: (List of findings for this item, List of summary lines)
         """
         item_key = item_data.get('key', 'N/A')
         item_title = item_data.get('title', 'N/A')
@@ -141,7 +148,7 @@ class ZoteroSearchEngine:
             attachments = self.zot_conn.children(item_key)
         except Exception as e:
             print(f"  Error fetching attachments for {item_key}: {e}")
-            return []
+            return [], []
         
         # Filter PDF attachments
         pdf_attachments = [
@@ -151,14 +158,18 @@ class ZoteroSearchEngine:
         
         if not pdf_attachments:
             print("  No processable PDF attachments found for this item.")
-            return []
+            return [], []
         
         findings = []
         found_text_in_item = False
+        summary_counter = {}  # {filename: {term: count}}
+        pdf_filenames = []
         
         for pdf_att in pdf_attachments:
             pdf_att_data = pdf_att.get('data', {})
             pdf_info = self.pdf_processor.get_pdf_info(pdf_att_data)
+            pdf_filename = pdf_info.get('filename', 'N/A')
+            pdf_filenames.append(pdf_filename)
             
             # Extract text from PDF
             text_by_page = self._extract_pdf_text(pdf_info, item_title)
@@ -170,12 +181,24 @@ class ZoteroSearchEngine:
                 found_text_in_item = True
             
             # Search each page
-            page_findings = self._search_pdf_pages(
-                text_by_page, full_text_terms, item_data, pdf_info
+            page_findings, page_counter = self._search_pdf_pages(
+                text_by_page, full_text_terms, item_data, pdf_info, verbose=verbose
             )
             findings.extend(page_findings)
+            if not verbose:
+                # Merge page_counter into summary_counter
+                if pdf_filename not in summary_counter:
+                    summary_counter[pdf_filename] = {}
+                for term, count in page_counter.items():
+                    summary_counter[pdf_filename][term] = summary_counter[pdf_filename].get(term, 0) + count
         
-        return findings
+        summary_lines = []
+        if not verbose and summary_counter:
+            for pdf_filename, term_counts in summary_counter.items():
+                for term, count in term_counts.items():
+                    summary_lines.append(f"    Found '{term}' {count} times in '{pdf_filename}'.")
+        
+        return findings, summary_lines
     
     def _extract_pdf_text(self, pdf_info: Dict[str, str], item_title: str) -> Optional[Dict[int, str]]:
         """
@@ -214,7 +237,8 @@ class ZoteroSearchEngine:
         return None
     
     def _search_pdf_pages(self, text_by_page: Dict[int, str], full_text_terms: List[str],
-                         item_data: Dict[str, Any], pdf_info: Dict[str, str]) -> List[Dict[str, Any]]:
+                         item_data: Dict[str, Any], pdf_info: Dict[str, str],
+                         verbose: bool = False) -> Tuple[List[Dict[str, Any]], dict]:
         """
         Search for terms in PDF pages.
         
@@ -223,11 +247,13 @@ class ZoteroSearchEngine:
             full_text_terms: Terms to search for
             item_data: Zotero item data
             pdf_info: PDF information dictionary
+            verbose: If True, print detailed output. If False, only count for summary.
             
         Returns:
-            List of findings
+            Tuple: (List of findings, dict of {term: count})
         """
         findings = []
+        term_counter = {}  # {term: count}
         
         for page_num, page_text in text_by_page.items():
             if not page_text.strip():
@@ -271,10 +297,14 @@ class ZoteroSearchEngine:
                 
                 findings.append(finding)
                 
-                # Print progress
-                print(f"      Found '{', '.join(terms_in_context)}' on page {page_num} in '{pdf_info['filename']}'")
+                # Print progress if verbose
+                if verbose:
+                    print(f"      Found '{', '.join(terms_in_context)}' on page {page_num} in '{pdf_info['filename']}'")
+                # Count for summary if not verbose
+                for term in terms_in_context:
+                    term_counter[term] = term_counter.get(term, 0) + 1
         
-        return findings
+        return findings, term_counter
     
     def get_search_summary(self, results: List[Dict[str, Any]]) -> str:
         """
@@ -290,9 +320,9 @@ class ZoteroSearchEngine:
 
 
 # Convenience function for backward compatibility
-def search_zotero_and_full_text(zot_conn, base_attachment_dir: str, 
+def search_zotero_and_full_text(zot_conn, base_attachment_dir: str,
                                metadata_search_terms: str, full_text_search_terms: List[str],
-                               max_results_stage1: int = 100) -> List[Dict[str, Any]]:
+                               max_results_stage1: int = 100, verbose: bool = False) -> List[Dict[str, Any]]:
     """
     Search Zotero and full text (backward compatibility function).
     
@@ -302,6 +332,7 @@ def search_zotero_and_full_text(zot_conn, base_attachment_dir: str,
         metadata_search_terms: Metadata search terms
         full_text_search_terms: Full text search terms
         max_results_stage1: Maximum results for stage 1
+        verbose: If True, print detailed output. If False, print summary only.
         
     Returns:
         List of findings
@@ -318,4 +349,4 @@ def search_zotero_and_full_text(zot_conn, base_attachment_dir: str,
     engine = ZoteroSearchEngine(config)
     engine.zot_conn = zot_conn
     
-    return engine.search_zotero_and_full_text(metadata_search_terms, full_text_search_terms)
+    return engine.search_zotero_and_full_text(metadata_search_terms, full_text_search_terms, verbose=verbose)
