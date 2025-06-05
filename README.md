@@ -1,6 +1,10 @@
 # ZotSearch - Enhanced Zotero Library and Full-Text PDF Search
 
-ZotSearch is a Python script that enables users to search their local Zotero library using the API and then search for full-text content within PDFs. The enhanced version now includes CSV export functionality and Zotero URL integration for direct access to search results.
+ZotSearch is a Python script that enables users to search their local Zotero library using the API and then search for full-text content within PDFs and includes multiple output formats (CSV and Markdown) and Zotero URL integration for direct access to search results.
+Disclaimer: The project was largely vibe-coded using Claude.
+The script is written to work in conjunction with ZotMoov and a linked file structure, where your PDFs sit in a linked folder (e.g., Onedrive folder) rather than in the Zotero library folder.
+
+The general workflow involves a) including search terms for references in the Zotero library, b) full-text search among the results for a new set of keywords. The output will contain all hits among the references. 
 
 ## Features
 
@@ -9,13 +13,13 @@ ZotSearch is a Python script that enables users to search their local Zotero lib
 - Full-text search within PDF attachments (both linked and imported files)
 - Support for both local linked files and Zotero-stored PDFs
 - Context-aware text extraction with highlighted search terms
-
-### Enhanced Features (New)
-- **CSV Export**: Save search results to CSV files with comprehensive metadata
+- **Multiple Output Formats**: Save search results to CSV or Markdown files
+- **CSV Export**: Structured data format with comprehensive metadata for analysis
+- **Markdown Export**: Research-friendly format with YAML frontmatter for note-taking apps
 - **Zotero URLs**: Direct links to open items and specific PDF pages in Zotero
 - **Enhanced Metadata**: Author names, publication years, and timestamps
 - **Command-line Options**: Automation-friendly with argument parsing
-- **Interactive CSV Save**: Option to save results after viewing console output
+- **Interactive Output Choice**: Choose between CSV, Markdown, or no file output
 
 ## Installation
 
@@ -32,7 +36,7 @@ pip install pyzotero pypdfium2
    ```
 
 By default, `local = True` for local API usage. Adapt the respective line for Web API usage.
-For local API usage, user ID should be set to 0. API key is not used and can take on any value.
+For local API usage, user ID should be set to 0. API key is not used for local usage and can take on any value.
 
 2. Configure the base attachment path for linked files:
    ```python
@@ -43,34 +47,55 @@ For local API usage, user ID should be set to 0. API key is not used and can tak
 
 ### Basic Usage
 ```bash
-python zotsearch.py
+python main.py
 ```
 The script will prompt you for:
 - Metadata search terms (searches titles, authors, etc.)
 - Full-text search terms (comma-separated list)
 
-### CSV Export Options
+After displaying results, you'll be offered output format choices:
+```
+Output options:
+1. CSV file (spreadsheet format)
+2. Markdown file (research notes format)
+3. No file output
+Choose output format (1/2/3):
+```
 
-#### Save to specific CSV file
+### Output Format Options
+
+#### CSV Export
+Save results to CSV format for data analysis and spreadsheet applications:
+
 ```bash
-python zotsearch.py --csv results.csv
+# Save to specific CSV file
+python main.py --csv results.csv
+
+# Save to CSV only (no console output)
+python main.py --csv results.csv --csv-only
 ```
 
-#### Save to CSV only (no console output)
+#### Markdown Export
+Save results to Markdown format for research notes and documentation:
+
 ```bash
-python zotsearch.py --csv results.csv --csv-only
+# Save to specific Markdown file
+python main.py --md results.md
+python main.py --markdown results.md
+
+# Save to Markdown only (no console output)
+python main.py --md results.md --md-only
+python main.py --markdown results.md --markdown-only
 ```
 
-#### Interactive CSV save
-After running a search, the script will offer to save results to CSV:
-```
-Would you like to save results to a CSV file? (y/n): y
-Enter filename (default: zotero_search_results_20250602_111804.csv):
-```
+#### Interactive Output Choice
+When no output format is specified, the script offers an interactive menu to choose between CSV, Markdown, or no file output.
 
-## CSV Output Format
+## Output Formats
 
-The CSV file includes the following columns:
+### CSV Output Format
+
+The CSV file includes the following columns for structured data analysis:
 
 | Column | Description |
 |--------|-------------|
@@ -86,6 +111,63 @@ The CSV file includes the following columns:
 | `zotero_item_url` | URL to open item in Zotero |
 | `zotero_pdf_url` | URL to open specific PDF page in Zotero |
 | `search_timestamp` | When the search was performed |
+
+### Markdown Output Format
+
+The Markdown file creates research-friendly documents with:
+
+- **YAML Frontmatter**: Metadata including title, authors, year, citekey, and tags. Currently multiple YAML frontmatters are returned per markdown file, one for each paper found in the results.
+- **Paper Sections**: Each paper gets its own section with all retrieved text passages
+- **Zotero Integration**: Direct links to papers and specific PDF pages
+- **Annotations Format**: Compatible with research note-taking applications like Obsidian
+
+#### Example Markdown Structure:
+```markdown
+---
+cssclass: research-note
+title: The role of career shocks in contemporary career development
+Year: 2021
+Authors: Akkermans, Jos; Rodrigues, Ricardo; Mol, Stefan T.
+citekey: akkermansRole2021
+tags: Source
+Zotero Link: [Paper.pdf](zotero://select/library/items/ITEMKEY)
+---
+
+## The role of career shocks in contemporary career development
+
+## Annotations
+
+"Disruptive and extraordinary events that are, at least to some degree, caused by factors outside the focal individual's control" Highlight [Page 2](zotero://open-pdf/library/items/PDFKEY?page=2)
+
+"There is still a lack of conceptual clarity of what exactly constitutes a career shock." Highlight [Page 3](zotero://open-pdf/library/items/PDFKEY?page=3)
+```
+
+## Quick Start Examples
+
+### Example 1: Basic Search with Interactive Output Choice
+```bash
+python main.py
+# Enter search terms when prompted
+# Choose output format from the interactive menu
+```
+
+### Example 2: Direct CSV Export
+```bash
+python main.py --csv my_research_results.csv
+# Results saved to CSV for data analysis
+```
+
+### Example 3: Direct Markdown Export for Note-Taking
+```bash
+python main.py --md literature_review.md
+# Results saved to Markdown for research notes
+```
+
+### Example 4: Silent Export (No Console Output)
+```bash
+python main.py --markdown research_notes.md --markdown-only
+# Only creates the Markdown file, no console output
+```
 
 ## Zotero URL Integration
 
@@ -119,10 +201,23 @@ Reference: Machine Learning in Healthcare (Key: SMITH2023)
 ### CSV Output
 The same information is saved in structured CSV format for further analysis, reporting, or integration with other tools.
 
+### Markdown Output
+Results are organized by paper with YAML frontmatter and annotations sections, perfect for research note-taking and literature review workflows.
+
 ## Command Line Arguments
 
+### Output Options
 - `--csv FILENAME`: Save results to specified CSV file
 - `--csv-only`: Only save to CSV, suppress console output
+- `--md FILENAME` or `--markdown FILENAME`: Save results to specified Markdown file
+- `--md-only` or `--markdown-only`: Only save to Markdown, suppress console output
+
+### Other Options
+- `--config CONFIG`: Path to configuration file (JSON format)
+- `--base-path PATH`: Override base attachment path
+- `--max-results N`: Maximum results for metadata search (default: 100)
+- `--context-window N`: Context sentence window size (default: 2). The default means 2 sentences before and after the keyword is found will be returned. Larger window sizes will return more sentences. 
+- `--version`: Show version information
 - `--help`: Show help message
 
 ## Error Handling
@@ -149,19 +244,25 @@ This will test:
 ## Use Cases
 
 ### Research and Literature Review
-- Export search results for systematic literature reviews
-- Create bibliographic databases with full-text search capabilities
-- Generate reports with direct links to source materials
+- **CSV Export**: Create structured datasets for systematic literature reviews and meta-analyses
+- **Markdown Export**: Generate research notes with proper citations and page references
+- **Direct Zotero Integration**: Jump directly to source materials from search results
 
 ### Academic Writing
-- Quickly locate and cite relevant passages
-- Build evidence tables with page-specific references
-- Share search results with collaborators
+- **Evidence Collection**: Quickly locate and cite relevant passages with page-specific references
+- **Collaborative Research**: Share search results in both structured (CSV) and readable (Markdown) formats
+- **Literature Synthesis**: Build comprehensive literature reviews with organized annotations
 
 ### Knowledge Management
-- Create searchable databases of research findings
-- Track mentions of specific concepts across literature
-- Build citation networks with context
+- **Research Databases**: Create searchable databases of research findings in CSV format
+- **Note-Taking Integration**: Import Markdown results into Obsidian, Notion, or other note-taking apps
+- **Concept Tracking**: Monitor mentions of specific concepts across your entire literature collection
+- **Citation Networks**: Build interconnected knowledge bases with contextual references
+
+### Workflow Integration
+- **Data Analysis**: Use CSV exports with R, Python, or Excel for quantitative literature analysis
+- **Documentation**: Generate Markdown reports for research documentation and sharing
+- **Reference Management**: Seamlessly integrate with existing Zotero workflows
 
 ## Troubleshooting
 
@@ -170,7 +271,9 @@ This will test:
 1. **PDF not found errors**: Verify `BASE_ATTACHMENT_PATH` is correctly set
 2. **API connection failures**: Check Zotero credentials and internet connection
 3. **Empty search results**: Try broader search terms or check PDF text extraction
-4. **CSV encoding issues**: The script uses UTF-8 encoding for international characters
+4. **File encoding issues**: Both CSV and Markdown files use UTF-8 encoding for international characters
+5. **Markdown formatting issues**: Special characters are automatically escaped in Markdown output
+6. **Output format conflicts**: Cannot use both `--csv-only` and `--md-only` simultaneously
 
 ### Debug Tips
 
@@ -178,6 +281,23 @@ This will test:
 - Verify PDF files are accessible at the specified paths
 - Test with simple search terms first
 - Review console output for detailed error messages
+- For Markdown issues, check that special characters are properly handled
+- Use `--help` to see all available command-line options
+
+### Output Format Selection Guide
+
+**Choose CSV when:**
+- Performing quantitative analysis of search results
+- Importing data into spreadsheet applications
+- Conducting systematic literature reviews requiring structured data
+- Integrating with data analysis tools (R, Python, etc.)
+
+**Choose Markdown when:**
+- Taking research notes and building knowledge bases
+- Using note-taking applications like Obsidian or Notion
+- Creating readable research documentation
+- Building interconnected literature reviews
+- Sharing results in a human-readable format
 
 ## License
 
