@@ -37,7 +37,8 @@ class PDFProcessor:
             for i, page in enumerate(pdf_doc):
                 textpage = page.get_textpage()
                 # Get all text with potential formatting improvements
-                raw_text = textpage.get_text_range()
+                # Use the current pypdfium2 default behavior explicitly.
+                raw_text = textpage.get_text_bounded()
                 
                 # Clean and format the text
                 cleaned_text = self._clean_pdf_text(raw_text)

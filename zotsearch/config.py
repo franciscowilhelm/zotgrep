@@ -5,7 +5,7 @@ This module handles all configuration settings, validation, and environment setu
 """
 
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 
 
@@ -24,6 +24,8 @@ class ZotSearchConfig:
     # Search Parameters
     max_results_stage1: int = 100
     context_sentence_window: int = 2
+    publication_title_filter: Optional[List[str]] = None
+    debug_publication_filter: bool = False
     
     # Local API flag
     use_local_api: bool = True
@@ -78,6 +80,8 @@ def load_config_from_env() -> ZotSearchConfig:
         base_attachment_path=os.getenv('ZOTERO_BASE_ATTACHMENT_PATH', ''),
         max_results_stage1=int(os.getenv('ZOTERO_MAX_RESULTS', '100')),
         context_sentence_window=int(os.getenv('ZOTERO_CONTEXT_WINDOW', '2')),
+        publication_title_filter=_parse_csv_env(os.getenv('ZOTERO_PUBLICATION_TITLE_FILTER', '')),
+        debug_publication_filter=os.getenv('ZOTERO_DEBUG_PUBLICATION_FILTER', '').lower() in ['1', 'true', 'yes'],
         use_local_api=os.getenv('ZOTERO_USE_LOCAL_API', 'true').lower() == 'true'
     )
 
@@ -91,6 +95,8 @@ def create_default_config() -> ZotSearchConfig:
         base_attachment_path='/Users/francisco/Library/CloudStorage/OneDrive-UniversitaetBern/ZoteroAttachments',
         max_results_stage1=100,
         context_sentence_window=2,
+        publication_title_filter=None,
+        debug_publication_filter=False,
         use_local_api=True
     )
 
@@ -117,8 +123,10 @@ def get_config(config_dict: Optional[Dict[str, Any]] = None) -> ZotSearchConfig:
     try:
         return load_config_from_env()
     except ValueError:
-        # Fall back to default config
-        return create_default_config()
+        # Fall back to default config, but still honor env overrides.
+        config = create_default_config()
+        _apply_env_overrides(config)
+        return config
 
 
 def print_config_info(config: ZotSearchConfig) -> None:
@@ -128,3 +136,35 @@ def print_config_info(config: ZotSearchConfig) -> None:
     print(f"Library type: {config.library_type}")
     print(f"Max results (stage 1): {config.max_results_stage1}")
     print(f"Context sentence window: {config.context_sentence_window}")
+    if config.publication_title_filter:
+        print(f"Publication title filter: {', '.join(config.publication_title_filter)}")
+    if config.debug_publication_filter:
+        print("Publication title debug: enabled")
+
+
+def _parse_csv_env(value: str) -> Optional[List[str]]:
+    if not value:
+        return None
+    items = [v.strip() for v in value.split(',') if v.strip()]
+    return items or None
+
+
+def _apply_env_overrides(config: ZotSearchConfig) -> None:
+    """
+    Apply a subset of env overrides without requiring full env validation.
+    """
+    max_results = os.getenv('ZOTERO_MAX_RESULTS')
+    if max_results:
+        config.max_results_stage1 = int(max_results)
+
+    context_window = os.getenv('ZOTERO_CONTEXT_WINDOW')
+    if context_window:
+        config.context_sentence_window = int(context_window)
+
+    publication_filter = _parse_csv_env(os.getenv('ZOTERO_PUBLICATION_TITLE_FILTER', ''))
+    if publication_filter:
+        config.publication_title_filter = publication_filter
+
+    debug_publication = os.getenv('ZOTERO_DEBUG_PUBLICATION_FILTER')
+    if debug_publication:
+        config.debug_publication_filter = debug_publication.lower() in ['1', 'true', 'yes']

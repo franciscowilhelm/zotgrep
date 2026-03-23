@@ -28,7 +28,7 @@ class ZotSearchCLI:
             Parsed arguments namespace
         """
         parser = argparse.ArgumentParser(
-            description='Search Zotero library and full-text PDFs',
+            description='Search Zotero library metadata and optionally full-text PDFs',
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
 Examples:
@@ -37,6 +37,7 @@ Examples:
   python main.py --md results.md
   python main.py --csv results.csv --csv-only
   python main.py --markdown results.md --markdown-only
+  python main.py --zotero "machine learning health"
   python main.py --zotero "machine learning health" --fulltext "algorithm, bias"
   python main.py --zotero "AI ethics" --fulltext "privacy, fairness" --csv results.csv
             """
@@ -53,6 +54,32 @@ Examples:
             type=str,
             help='Full-text search terms, comma-separated (e.g., "algorithm, bias")'
         )
+
+        parser.add_argument(
+            '--metadata-only', '--no-fulltext',
+            action='store_true',
+            dest='metadata_only',
+            help='Run only the Zotero metadata search and skip all PDF/full-text processing'
+        )
+
+        parser.add_argument(
+            '--no-abstract',
+            action='store_true',
+            help='Omit abstracts from output'
+        )
+
+        parser.add_argument(
+            '--publication', '--publication-title',
+            type=str,
+            dest='publication_title',
+            help='Filter results by publication title (comma-separated for multiple)'
+        )
+
+        parser.add_argument(
+            '--debug-publication',
+            action='store_true',
+            help='Print publication titles of matched items before filtering'
+        )
         
         parser.add_argument(
             '--csv',
@@ -66,7 +93,13 @@ Examples:
             dest='markdown',
             help='Save results to Markdown file (specify filename)'
         )
-        
+
+        parser.add_argument(
+            '--json',
+            type=str,
+            help='Save results to JSON file (specify filename). If omitted, JSON is still saved by default.'
+        )
+
         parser.add_argument(
             '--csv-only',
             action='store_true',
@@ -78,6 +111,12 @@ Examples:
             action='store_true',
             dest='markdown_only',
             help='Only save to Markdown, do not print to console'
+        )
+
+        parser.add_argument(
+            '--no-json',
+            action='store_true',
+            help='Do not save the default JSON output'
         )
         
         parser.add_argument(
@@ -109,7 +148,7 @@ Examples:
         parser.add_argument(
             '--version',
             action='version',
-            version='ZotSearch 2.0.0'
+            version='ZotSearch 2.1.0'
         )
         
         return parser.parse_args()
@@ -128,17 +167,11 @@ Examples:
             print("Error: Metadata search terms cannot be empty.")
             sys.exit(1)
         
-        full_text_query_str = input("Enter full-text search terms, comma-separated (e.g., 'algorithm, bias'): ").strip()
-        if not full_text_query_str:
-            print("Error: Full-text search terms cannot be empty.")
-            sys.exit(1)
+        full_text_query_str = input(
+            "Enter full-text search terms, comma-separated (optional; leave blank to skip): "
+        ).strip()
         
-        full_text_terms_list = [term.strip() for term in full_text_query_str.split(',')]
-        full_text_terms_list = [term for term in full_text_terms_list if term]  # Remove empty terms
-        
-        if not full_text_terms_list:
-            print("Error: No valid full-text search terms provided.")
-            sys.exit(1)
+        full_text_terms_list = [term.strip() for term in full_text_query_str.split(',') if term.strip()]
         
         return metadata_query, full_text_terms_list
     
@@ -197,38 +230,90 @@ Examples:
         
         if args.context_window:
             config.context_sentence_window = args.context_window
+
+        if args.publication_title:
+            publication_titles = [t.strip() for t in args.publication_title.split(',') if t.strip()]
+            config.publication_title_filter = publication_titles or None
+
+        if args.debug_publication:
+            config.debug_publication_filter = True
         
         return config
     
-    def handle_output(self, results: List[dict], args: argparse.Namespace) -> None:
+    def handle_output(
+        self,
+        results: List[dict],
+        args: argparse.Namespace,
+        metadata_query: Optional[str] = None,
+        full_text_terms: Optional[List[str]] = None,
+        include_abstract: bool = False,
+        allow_interactive_output: bool = True,
+        context_window: Optional[int] = None,
+        search_timestamp: Optional[str] = None,
+    ) -> None:
         """
         Handle output based on command-line arguments.
-        
+
         Args:
             results: Search results
             args: Parsed command-line arguments
+            metadata_query: Zotero metadata search query
+            full_text_terms: List of full-text search terms
+            allow_interactive_output: Whether to prompt for output format when none was supplied
+            context_window: Context window size
+            search_timestamp: Search timestamp (optional)
         """
+        if results and not args.no_json:
+            json_filename = args.json or self.result_handler.get_default_json_filename(search_timestamp)
+            self.result_handler.save_results_to_json(
+                results,
+                json_filename,
+                zotero_query=metadata_query,
+                full_text_query=full_text_terms,
+                include_abstract=include_abstract,
+                context_window=context_window,
+                search_timestamp=search_timestamp,
+            )
+
         # Save to CSV if specified
         if args.csv:
-            self.result_handler.save_results_to_csv(results, args.csv)
-        
+            self.result_handler.save_results_to_csv(results, args.csv, include_abstract=include_abstract)
+
         # Save to Markdown if specified
         if args.markdown:
-            self.result_handler.save_results_to_markdown(results, args.markdown)
-        
+            print(f"Attempting to save {len(results)} results to Markdown.") # Added logging
+            self.result_handler.save_results_to_markdown(
+                results,
+                args.markdown,
+                zotero_query=metadata_query,
+                full_text_query=full_text_terms,
+                include_abstract=include_abstract,
+                context_window=context_window,
+                search_timestamp=search_timestamp,
+            )
+
         # Print to console unless output-only is specified
         should_print = not (args.csv_only or args.markdown_only)
         if should_print:
             self.result_handler.print_results(results)
-        
+
         # Interactive output choice if no output format specified and results exist
-        if not args.csv and not args.markdown and results and should_print:
+        if allow_interactive_output and not args.csv and not args.markdown and results and should_print:
             filename, output_format = self.result_handler.get_interactive_output_choice()
             if filename and output_format:
                 if output_format == 'csv':
-                    self.result_handler.save_results_to_csv(results, filename)
+                    self.result_handler.save_results_to_csv(results, filename, include_abstract=include_abstract)
                 elif output_format == 'md':
-                    self.result_handler.save_results_to_markdown(results, filename)
+                    print(f"Attempting to save {len(results)} results to Markdown.") # Added logging
+                    self.result_handler.save_results_to_markdown(
+                        results,
+                        filename,
+                        zotero_query=metadata_query,
+                        full_text_query=full_text_terms,
+                        include_abstract=include_abstract,
+                        context_window=context_window,
+                        search_timestamp=search_timestamp,
+                    )
     
     def run(self) -> int:
         """
@@ -250,16 +335,27 @@ Examples:
             
             # Print configuration info
             print_config_info(config)
+
+            if args.json and args.no_json:
+                print("Error: Cannot use --json and --no-json together.")
+                return 1
             
             # Get search terms: prefer CLI args, else interactive
-            if args.zotero and args.fulltext:
+            if args.zotero:
                 metadata_query = args.zotero.strip()
-                full_text_terms = [term.strip() for term in args.fulltext.split(',') if term.strip()]
+                full_text_terms = [term.strip() for term in args.fulltext.split(',') if term.strip()] if args.fulltext else []
                 if not metadata_query:
                     print("Error: --zotero argument cannot be empty.")
                     return 1
-                if not full_text_terms:
-                    print("Error: --fulltext argument must provide at least one term.")
+                if args.metadata_only and args.fulltext:
+                    print("Error: --metadata-only/--no-fulltext cannot be combined with --fulltext.")
+                    return 1
+                if args.fulltext is not None and not full_text_terms:
+                    print(
+                        "Error: --fulltext argument must provide at least one term. "
+                        "If you want metadata-only results, omit --fulltext or pass "
+                        "--metadata-only/--no-fulltext."
+                    )
                     return 1
             else:
                 metadata_query, full_text_terms = self.get_search_terms_interactive()
@@ -272,12 +368,24 @@ Examples:
             
             print("\nStarting search...")
             results = search_engine.search_zotero_and_full_text(
-                metadata_query, full_text_terms
+                metadata_query,
+                full_text_terms,
+                include_abstract=not args.no_abstract,
+                metadata_only=args.metadata_only,
             )
-            
-            # Handle output
-            self.handle_output(results, args)
-            
+
+            # Handle output, passing search metadata
+            self.handle_output(
+                results,
+                args,
+                metadata_query=metadata_query,
+                full_text_terms=full_text_terms,
+                include_abstract=not args.no_abstract,
+                allow_interactive_output=not bool(args.zotero),
+                context_window=config.context_sentence_window,
+                search_timestamp=None,  # Could be set to now or from results if needed
+            )
+
             # Print summary
             if results:
                 print(f"\n{search_engine.get_search_summary(results)}")
@@ -308,6 +416,6 @@ if __name__ == "__main__":
         "\n[DEPRECATION WARNING]\n"
         "Direct execution of 'cli.py' as a script is deprecated and will be removed in a future release.\n"
         "Please use the package interface instead:\n"
-        "    python -m zotsearch\n"
+        "    zotsearch\n"
     )
     sys.exit(main())

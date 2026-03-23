@@ -6,6 +6,7 @@ and Zotero URL generation.
 """
 
 import csv
+import json
 import os
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
@@ -44,7 +45,7 @@ class ResultHandler:
     
     def create_finding(self, item_data: Dict[str, Any], pdf_info: Dict[str, str],
                       page_num: int, terms_found: List[str], context: str,
-                      highlighted_context: str) -> Dict[str, Any]:
+                      highlighted_context: str, include_abstract: bool = False) -> Dict[str, Any]:
         """
         Create a finding dictionary from search results.
         
@@ -55,6 +56,7 @@ class ResultHandler:
             terms_found: List of search terms found
             context: Unhighlighted context text
             highlighted_context: Context text with highlighted terms
+            include_abstract: Whether to include the Zotero abstract in the result
             
         Returns:
             Finding dictionary with all relevant information
@@ -68,6 +70,9 @@ class ResultHandler:
         
         # Process publication year
         publication_year = self._extract_publication_year(item_data.get('date', 'N/A'))
+        publication_title = item_data.get('publicationTitle', 'N/A')
+        doi = self._extract_doi(item_data)
+        abstract = self._extract_abstract(item_data) if include_abstract else ''
         
         # Generate URLs
         item_url = self.generate_zotero_url(item_key)
@@ -77,6 +82,9 @@ class ResultHandler:
             'reference_title': item_title,
             'authors': authors_str,
             'publication_year': publication_year,
+            'publication_title': publication_title,
+            'doi': doi,
+            'abstract': abstract,
             'reference_key': item_key,
             'pdf_filename': pdf_info['filename'],
             'pdf_key': pdf_info['key'],
@@ -88,6 +96,66 @@ class ResultHandler:
             'zotero_pdf_url': pdf_page_url,
             'search_timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
+
+    def create_reference_result(self, item_data: Dict[str, Any], include_abstract: bool = False) -> Dict[str, Any]:
+        """
+        Create a metadata-only result dictionary for searches without full-text terms.
+
+        Args:
+            item_data: Zotero item metadata
+            include_abstract: Whether to include the Zotero abstract in the result
+
+        Returns:
+            Result dictionary with reference metadata only
+        """
+        item_title = item_data.get('title', 'N/A')
+        item_key = item_data.get('key', 'N/A')
+        authors_str = self._format_authors(item_data.get('creators', []))
+        publication_year = self._extract_publication_year(item_data.get('date', 'N/A'))
+        publication_title = item_data.get('publicationTitle', 'N/A')
+        doi = self._extract_doi(item_data)
+        abstract = self._extract_abstract(item_data) if include_abstract else ''
+        item_url = self.generate_zotero_url(item_key)
+
+        return {
+            'reference_title': item_title,
+            'authors': authors_str,
+            'publication_year': publication_year,
+            'publication_title': publication_title,
+            'doi': doi,
+            'abstract': abstract,
+            'reference_key': item_key,
+            'pdf_filename': '',
+            'pdf_key': '',
+            'page_number': '',
+            'search_term_found': '',
+            'context': '',
+            'context_highlighted': '',
+            'zotero_item_url': item_url,
+            'zotero_pdf_url': '',
+            'search_timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+
+    def _extract_abstract(self, item_data: Dict[str, Any]) -> str:
+        """
+        Extract the abstract text from Zotero item metadata.
+
+        Zotero exposes abstracts on top-level items as `abstractNote`, which pyzotero
+        passes through in the item's `data` payload.
+        """
+        abstract = item_data.get('abstractNote', '')
+        if not abstract:
+            return ''
+        return re.sub(r'\s+', ' ', abstract).strip()
+
+    def _extract_doi(self, item_data: Dict[str, Any]) -> str:
+        """
+        Extract the DOI from Zotero item metadata.
+        """
+        doi = item_data.get('DOI', '')
+        if not doi:
+            return ''
+        return doi.strip()
     
     def _format_authors(self, creators: List[Dict[str, Any]]) -> str:
         """
@@ -133,32 +201,51 @@ class ResultHandler:
         
         return date_str
     
-    def save_results_to_csv(self, results: List[Dict[str, Any]], filename: str) -> None:
+    def save_results_to_csv(
+        self,
+        results: List[Dict[str, Any]],
+        filename: str,
+        include_abstract: bool = True
+    ) -> None:
         """
         Save search results to a CSV file.
         
         Args:
             results: List of result dictionaries
             filename: Output CSV filename
+            include_abstract: Whether to include the abstract column
         """
         if not results:
             print("No results to save.")
             return
         
-        fieldnames = [
+        base_fieldnames = [
             'reference_title',
             'authors',
             'publication_year',
+            'publication_title',
+            'doi',
             'reference_key',
+            'abstract',
+            'zotero_item_url',
+            'search_timestamp'
+        ]
+        full_text_fieldnames = [
             'pdf_filename',
             'pdf_key',
             'page_number',
             'search_term_found',
             'context',
-            'zotero_item_url',
             'zotero_pdf_url',
-            'search_timestamp'
         ]
+        include_full_text_fields = any(
+            any(result.get(field) not in ('', None) for field in full_text_fieldnames)
+            for result in results
+        )
+        fieldnames = list(base_fieldnames)
+        if not include_abstract:
+            fieldnames.remove('abstract')
+        fieldnames.extend(full_text_fieldnames if include_full_text_fields else [])
         
         try:
             with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
@@ -167,7 +254,10 @@ class ResultHandler:
                 
                 for result in results:
                     # Create a copy without the highlighted context for CSV
-                    csv_result = {k: v for k, v in result.items() if k != 'context_highlighted'}
+                    csv_result = {
+                        field: result.get(field, '')
+                        for field in fieldnames
+                    }
                     writer.writerow(csv_result)
             
             print(f"\nResults saved to: {filename}")
@@ -175,88 +265,260 @@ class ResultHandler:
             
         except Exception as e:
             print(f"Error saving CSV file: {e}")
-    
-    def save_results_to_markdown(self, results: List[Dict[str, Any]], filename: str) -> None:
+
+    def _group_results_by_reference(
+        self,
+        results: List[Dict[str, Any]],
+        has_full_text_results: bool
+    ) -> Dict[str, Dict[str, Any]]:
         """
-        Save search results to a Markdown file with sections for each paper.
-        
-        Args:
-            results: List of result dictionaries
-            filename: Output Markdown filename
+        Group flat result rows by Zotero reference key.
+        """
+        papers: Dict[str, Dict[str, Any]] = {}
+
+        for result in results:
+            ref_key = result['reference_key']
+            if ref_key not in papers:
+                authors_list = [a.strip() for a in result['authors'].split(';')] if result['authors'] != 'N/A' else []
+                papers[ref_key] = {
+                    'title': result['reference_title'],
+                    'authors': authors_list,
+                    'year': result['publication_year'],
+                    'publication_title': result.get('publication_title', 'N/A'),
+                    'doi': result.get('doi', ''),
+                    'abstract': result.get('abstract', ''),
+                    'citekey': ref_key,
+                    'zotero_item_key': ref_key,
+                    'zotero_select_url': result['zotero_item_url'],
+                    'annotations': []
+                }
+
+            if has_full_text_results and (
+                result.get('context') or result.get('page_number') or result.get('zotero_pdf_url')
+            ):
+                papers[ref_key]['annotations'].append({
+                    'text': result['context'],
+                    'page': result['page_number'],
+                    'pdf_attachment_key': result['pdf_key'],
+                    'zotero_pdf_url': result['zotero_pdf_url'],
+                    'terms_found': result.get('search_term_found', ''),
+                })
+
+        return papers
+
+    def _build_structured_payload(
+        self,
+        results: List[Dict[str, Any]],
+        zotero_query: Optional[str] = None,
+        full_text_query: Optional[List[str]] = None,
+        include_abstract: bool = True,
+        context_window: Optional[int] = None,
+        search_timestamp: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Build the structured representation used for JSON and Markdown frontmatter.
+        """
+        has_full_text_results = any(
+            result.get('search_term_found') or result.get('context') or result.get('zotero_pdf_url')
+            for result in results
+        )
+        papers = self._group_results_by_reference(results, has_full_text_results)
+        total_papers = len(papers)
+        total_annotations = sum(len(p['annotations']) for p in papers.values())
+
+        if not search_timestamp and results:
+            search_timestamp = results[0].get('search_timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+        paper_list: List[Dict[str, Any]] = []
+        for paper in papers.values():
+            paper_copy = dict(paper)
+            if not include_abstract:
+                paper_copy.pop('abstract', None)
+            paper_list.append(paper_copy)
+
+        return {
+            'zotsearch_results_version': 1,
+            'search_details': {
+                'zotero_query': zotero_query or "",
+                'full_text_query': full_text_query or [],
+                'search_mode': 'fulltext' if has_full_text_results else 'metadata_only',
+                'search_timestamp': search_timestamp,
+                'context_window': context_window if context_window is not None else "",
+            },
+            'summary': {
+                'total_papers_found': total_papers,
+                'total_annotations_found': total_annotations,
+            },
+            'papers': paper_list,
+        }
+
+    def save_results_to_json(
+        self,
+        results: List[Dict[str, Any]],
+        filename: str,
+        zotero_query: Optional[str] = None,
+        full_text_query: Optional[List[str]] = None,
+        include_abstract: bool = True,
+        context_window: Optional[int] = None,
+        search_timestamp: Optional[str] = None,
+    ) -> None:
+        """
+        Save search results to a structured JSON file.
         """
         if not results:
             print("No results to save.")
             return
-        
+
         try:
-            # Group results by reference
-            papers = {}
-            for result in results:
-                ref_key = result['reference_key']
-                if ref_key not in papers:
-                    papers[ref_key] = {
-                        'title': result['reference_title'],
-                        'authors': result['authors'],
-                        'year': result['publication_year'],
-                        'citekey': ref_key,
-                        'zotero_url': result['zotero_item_url'],
-                        'pdf_filename': result['pdf_filename'],
-                        'sections': []
-                    }
-                
-                # Create section entry
-                section = {
-                    'context': result['context'],
-                    'page': result['page_number'],
-                    'terms_found': result['search_term_found'],
-                    'pdf_url': result['zotero_pdf_url']
-                }
-                papers[ref_key]['sections'].append(section)
-            
-            # Generate markdown content
+            payload = self._build_structured_payload(
+                results,
+                zotero_query=zotero_query,
+                full_text_query=full_text_query,
+                include_abstract=include_abstract,
+                context_window=context_window,
+                search_timestamp=search_timestamp,
+            )
+
+            with open(filename, 'w', encoding='utf-8') as jsonfile:
+                json.dump(payload, jsonfile, indent=2, ensure_ascii=False)
+
+            print(f"\nJSON results saved to: {filename}")
+        except Exception as e:
+            print(f"Error saving JSON file: {e}")
+    
+    def save_results_to_markdown(
+        self,
+        results: List[Dict[str, Any]],
+        filename: str,
+        zotero_query: Optional[str] = None,
+        full_text_query: Optional[List[str]] = None,
+        include_abstract: bool = True,
+        context_window: Optional[int] = None,
+        search_timestamp: Optional[str] = None,
+    ) -> None:
+        """
+        Save search results to a Markdown file with a single YAML frontmatter and a human-friendly body.
+
+        Args:
+            results: List of result dictionaries
+            filename: Output Markdown filename
+            zotero_query: The Zotero library search query (optional)
+            full_text_query: List of full-text search terms (optional)
+            include_abstract: Whether to include abstracts in the Markdown output
+            context_window: Context window size (optional)
+            search_timestamp: Search timestamp (optional)
+        """
+        if not results:
+            print("No results to save.")
+            return
+
+        try:
+            payload = self._build_structured_payload(
+                results,
+                zotero_query=zotero_query,
+                full_text_query=full_text_query,
+                include_abstract=include_abstract,
+                context_window=context_window,
+                search_timestamp=search_timestamp,
+            )
+            papers = payload['papers']
+            search_details = payload['search_details']
+            summary = payload['summary']
+            total_papers = summary['total_papers_found']
+            total_annotations = summary['total_annotations_found']
+            has_full_text_results = search_details['search_mode'] == 'fulltext'
+            search_timestamp = search_details['search_timestamp']
+
+            # Compose compact YAML frontmatter to avoid duplicating the full reference list
+            import yaml
+            yaml_dict = {
+                'zotsearch-results/v1': None,
+                'search_details': search_details,
+                'summary': summary,
+            }
+            # Custom YAML dumper to avoid 'null' for version key
+            class NoAliasDumper(yaml.SafeDumper):
+                def ignore_aliases(self, data):
+                    return True
+            def represent_none(self, _):
+                return self.represent_scalar('tag:yaml.org,2002:null', '')
+            NoAliasDumper.add_representer(type(None), represent_none)
+
+            yaml_frontmatter = yaml.dump(
+                yaml_dict,
+                Dumper=NoAliasDumper,
+                default_flow_style=False,
+                sort_keys=False,
+                allow_unicode=True
+            )
+            # Remove the 'null' after the version key for aesthetic
+            yaml_frontmatter = yaml_frontmatter.replace("'zotsearch-results/v1': ''", "# zotsearch-results/v1")
+
             with open(filename, 'w', encoding='utf-8') as mdfile:
-                # Write header with search metadata
+                # Write YAML frontmatter
+                mdfile.write('---\n')
+                mdfile.write(yaml_frontmatter)
+                mdfile.write('---\n\n')
+
+                # Markdown body
                 mdfile.write("# ZotSearch Results\n\n")
-                mdfile.write(f"**Search Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-                mdfile.write(f"**Total Papers:** {len(papers)}\n")
-                mdfile.write(f"**Total Sections:** {len(results)}\n\n")
-                mdfile.write("---\n\n")
-                
-                # Write each paper
-                for ref_key, paper in papers.items():
-                    # Paper header with YAML-like frontmatter
-                    mdfile.write("---\n")
-                    mdfile.write("cssclass: research-note\n")
-                    mdfile.write(f"title: {paper['title']}\n")
-                    if paper['year'] != 'N/A':
-                        mdfile.write(f"Year: {paper['year']}\n")
-                    if paper['authors'] != 'N/A':
-                        mdfile.write(f"Authors: {paper['authors']}\n")
-                    mdfile.write(f"citekey: {ref_key}\n")
-                    mdfile.write("tags: Source\n")
-                    mdfile.write(f"Zotero Link: [{paper['pdf_filename']}]({paper['zotero_url']})\n")
+                mdfile.write("## Search Summary\n\n")
+                mdfile.write(f"- **Search Date:** {search_timestamp}\n")
+                mdfile.write(f"- **Zotero Library Query:** `{zotero_query or ''}`\n")
+                full_text_query_display = ', '.join([f'`{t}`' for t in (full_text_query or [])])
+                mdfile.write(
+                    f"- **Full-Text Query:** {full_text_query_display if full_text_query_display else 'None supplied'}\n"
+                )
+                if has_full_text_results:
+                    mdfile.write(f"- **Results:** Found **{total_annotations}** annotations across **{total_papers}** papers.\n\n")
+                else:
+                    mdfile.write(f"- **Results:** Found **{total_papers}** papers. No full-text terms were supplied.\n\n")
+
+                mdfile.write("### Reference List\n\n")
+                for idx, paper in enumerate(papers, 1):
+                    mdfile.write(f"{idx}.  {self._format_reference_entry(paper)}\n")
+                mdfile.write("\n---\n\n")
+
+                if include_abstract:
+                    mdfile.write("## Abstracts\n\n")
+                    for paper in papers:
+                        author_label = self._format_reference_heading(paper['authors'], paper['year'], paper['title'])
+                        mdfile.write(f"### Abstract for {author_label}\n\n")
+                        abstract_text = paper.get('abstract', '').strip()
+                        if abstract_text:
+                            mdfile.write(f"{abstract_text}\n\n")
+                        else:
+                            mdfile.write("No abstract available.\n\n")
                     mdfile.write("---\n\n")
-                    
-                    # Paper title as main heading
-                    mdfile.write(f"## {paper['title']}\n\n")
-                    
-                    # Annotations section
-                    mdfile.write("## Annotations\n\n")
-                    
-                    # Write each section/annotation
-                    for section in paper['sections']:
-                        # Clean and format the context
-                        context = self._clean_context_for_markdown(section['context'])
-                        
-                        # Create annotation entry similar to the example
-                        mdfile.write(f'"{context}" Highlight [Page {section["page"]}]({section["pdf_url"]}) \n \n')
-                    
-                    mdfile.write("\n")
-            
+
+                if has_full_text_results:
+                    mdfile.write("## Detailed Findings\n\n")
+                    for paper in papers:
+                        mdfile.write(f"### {paper['title']}\n\n")
+                        mdfile.write(f"- **Authors**: {'; '.join(paper['authors'])}\n")
+                        mdfile.write(f"- **Year**: {paper['year']}\n")
+                        if paper.get('publication_title') and paper['publication_title'] != 'N/A':
+                            mdfile.write(f"- **Publication**: {paper['publication_title']}\n")
+                        if paper.get('doi'):
+                            mdfile.write(f"- **DOI**: {self._format_doi_url(paper['doi'])}\n")
+                        mdfile.write(f"- **Citekey**: `{paper['citekey']}`\n")
+                        mdfile.write(f"- **Zotero Link**: [Open Item in Zotero]({paper['zotero_select_url']})\n\n")
+                        mdfile.write("#### Annotations\n\n")
+                        highlight_terms = self._build_highlight_terms(zotero_query, full_text_query)
+                        for annotation in paper['annotations']:
+                            context = self._clean_context_for_markdown(annotation['text'])
+                            context = self._highlight_terms_for_markdown(context, highlight_terms)
+                            mdfile.write(f"> {context}\n")
+                            mdfile.write(f"> - Highlight on [Page {annotation['page']}]({annotation['zotero_pdf_url']})\n\n")
+                        mdfile.write("---\n\n")
+                else:
+                    mdfile.write("## Detailed Findings\n\n")
+                    mdfile.write("No full-text terms were supplied, so no annotation-level findings were generated.\n")
+
             print(f"\nResults saved to: {filename}")
-            print(f"Total papers: {len(papers)}")
-            print(f"Total sections: {len(results)}")
-            
+            print(f"Total papers: {total_papers}")
+            print(f"Total annotations: {total_annotations}")
+
         except Exception as e:
             print(f"Error saving Markdown file: {e}")
     
@@ -303,6 +565,131 @@ class ResultHandler:
         context = context.replace('"', '\\"')
         
         return context
+
+    def _build_highlight_terms(
+        self,
+        zotero_query: Optional[str],
+        full_text_query: Optional[List[str]],
+    ) -> List[str]:
+        """
+        Build a list of terms to highlight from metadata and full-text queries.
+        """
+        terms: List[str] = []
+
+        if zotero_query:
+            for chunk in zotero_query.split(','):
+                chunk = chunk.strip()
+                if not chunk:
+                    continue
+                terms.append(chunk)
+                # Also add individual words from the chunk for broad matching.
+                for word in chunk.split():
+                    if word:
+                        terms.append(word)
+
+        if full_text_query:
+            for term in full_text_query:
+                term = term.strip()
+                if term:
+                    terms.append(term)
+
+        # De-duplicate while preserving order (case-insensitive).
+        seen = set()
+        deduped: List[str] = []
+        for term in terms:
+            key = term.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(term)
+
+        return deduped
+
+    def _format_doi_url(self, doi: str) -> str:
+        """
+        Normalize a DOI into a canonical URL when possible.
+        """
+        doi = (doi or '').strip()
+        if not doi:
+            return ''
+        if doi.lower().startswith('http://') or doi.lower().startswith('https://'):
+            return doi
+        return f"https://doi.org/{doi}"
+
+    def _format_reference_entry(self, paper: Dict[str, Any]) -> str:
+        """
+        Format a fuller APA-like reference entry for Markdown reports.
+        """
+        apa_authors = self._format_apa_authors(paper.get('authors', []))
+        parts = [f"{apa_authors} ({paper['year']}). *{paper['title']}*."]
+
+        publication_title = paper.get('publication_title')
+        if publication_title and publication_title != 'N/A':
+            parts.append(f"{publication_title}.")
+
+        doi = self._format_doi_url(paper.get('doi', ''))
+        if doi:
+            parts.append(doi)
+
+        return ' '.join(parts)
+
+    def _format_reference_heading(self, authors: List[str], year: str, fallback_title: str) -> str:
+        """
+        Format a short reference heading for Markdown sections.
+        """
+        if not authors:
+            return f"{fallback_title}, {year}"
+
+        surnames = []
+        for author in authors:
+            surname = author.split(',')[0].strip() if ',' in author else author.strip().split()[-1]
+            if surname:
+                surnames.append(surname)
+
+        if not surnames:
+            return f"{fallback_title}, {year}"
+        if len(surnames) == 1:
+            author_part = surnames[0]
+        elif len(surnames) == 2:
+            author_part = f"{surnames[0]} and {surnames[1]}"
+        else:
+            author_part = f"{surnames[0]} et al."
+
+        return f"{author_part}, {year}"
+
+    def _format_apa_authors(self, authors: List[str]) -> str:
+        """
+        Format author names into a compact APA-like string.
+        """
+        if not authors:
+            return ""
+
+        names = []
+        for author in authors:
+            parts = author.split(',')
+            if len(parts) == 2:
+                names.append(f"{parts[0].strip()}, {parts[1].strip()[0]}." if parts[1].strip() else parts[0].strip())
+            else:
+                names.append(author.strip())
+
+        if len(names) == 1:
+            return names[0]
+        if len(names) == 2:
+            return f"{names[0]} & {names[1]}"
+        return f"{', '.join(names[:-1])}, & {names[-1]}"
+
+    def _highlight_terms_for_markdown(self, text: str, terms: List[str]) -> str:
+        """
+        Highlight terms in text for Markdown output using bold markers.
+        """
+        if not text or not terms:
+            return text
+
+        # Prefer longer terms first to avoid partial matches.
+        terms_sorted = sorted(terms, key=len, reverse=True)
+        pattern = re.compile("|".join(re.escape(t) for t in terms_sorted), re.IGNORECASE)
+
+        return pattern.sub(lambda m: f"**{m.group(0)}**", text)
     
     def print_results(self, results: List[Dict[str, Any]]) -> None:
         """
@@ -322,11 +709,21 @@ class ResultHandler:
                 
                 if res['publication_year'] != 'N/A':
                     print(f"  Year: {res['publication_year']}")
-                
-                print(f"  PDF: {res['pdf_filename']}")
-                print(f"  Found '{res['search_term_found']}' on Page: {res['page_number']}")
-                print(f"  Context: {res['context_highlighted']}")
-                print(f"  Zotero PDF URL: {res['zotero_pdf_url']}")
+                if res.get('publication_title') and res['publication_title'] != 'N/A':
+                    print(f"  Publication: {res['publication_title']}")
+                if res.get('doi'):
+                    print(f"  DOI: {self._format_doi_url(res['doi'])}")
+
+                if res.get('search_term_found'):
+                    print(f"  PDF: {res['pdf_filename']}")
+                    print(f"  Found '{res['search_term_found']}' on Page: {res['page_number']}")
+                    print(f"  Context: {res['context_highlighted']}")
+                    print(f"  Zotero PDF URL: {res['zotero_pdf_url']}")
+                else:
+                    if res.get('abstract'):
+                        print(f"  Abstract: {res['abstract']}")
+                    print("  Full-text search: not run")
+                    print(f"  Zotero Item URL: {res['zotero_item_url']}")
         else:
             print("No matches found based on your criteria.")
     
@@ -342,6 +739,12 @@ class ResultHandler:
         """
         if not results:
             return "No results found."
+
+        has_full_text_results = any(res.get('search_term_found') for res in results)
+
+        if not has_full_text_results:
+            unique_references = len(set(res['reference_key'] for res in results))
+            return f"Found {unique_references} references from the Zotero metadata search."
         
         total_results = len(results)
         unique_references = len(set(res['reference_key'] for res in results))
@@ -357,10 +760,11 @@ class ResultHandler:
         Returns:
             Tuple of (filename, format) where format is 'csv' or 'md', or (None, '') if user declines
         """
-        print("\nOutput options:")
+        print("\nAdditional output options:")
+        print("JSON output is saved by default unless disabled with --no-json.")
         print("1. CSV file (spreadsheet format)")
         print("2. Markdown file (research notes format)")
-        print("3. No file output")
+        print("3. No additional file output")
         
         choice = input("Choose output format (1/2/3): ").strip()
         
@@ -392,6 +796,18 @@ class ResultHandler:
             filename = default_filename
         
         return filename
+
+    def get_default_json_filename(self, search_timestamp: Optional[str] = None) -> str:
+        """
+        Get the default JSON filename for a search result set.
+        """
+        if search_timestamp:
+            timestamp = re.sub(r'[^0-9]', '', search_timestamp)[:14]
+            if timestamp:
+                return f"zotero_search_results_{timestamp}.json"
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        return f"zotero_search_results_{timestamp}.json"
     
     def get_interactive_csv_filename(self) -> Optional[str]:
         """
@@ -416,16 +832,58 @@ def generate_zotero_url(item_key: str, pdf_key: Optional[str] = None,
     return handler.generate_zotero_url(item_key, pdf_key, page_number)
 
 
-def save_results_to_csv(results: List[Dict[str, Any]], filename: str) -> None:
+def save_results_to_csv(
+    results: List[Dict[str, Any]],
+    filename: str,
+    include_abstract: bool = True
+) -> None:
     """Save results to CSV (backward compatibility function)."""
     handler = ResultHandler()
-    handler.save_results_to_csv(results, filename)
+    handler.save_results_to_csv(results, filename, include_abstract=include_abstract)
 
 
-def save_results_to_markdown(results: List[Dict[str, Any]], filename: str) -> None:
+def save_results_to_json(
+    results: List[Dict[str, Any]],
+    filename: str,
+    zotero_query: Optional[str] = None,
+    full_text_query: Optional[List[str]] = None,
+    include_abstract: bool = True,
+    context_window: Optional[int] = None,
+    search_timestamp: Optional[str] = None,
+) -> None:
+    """Save results to JSON (backward compatibility function)."""
+    handler = ResultHandler()
+    handler.save_results_to_json(
+        results,
+        filename,
+        zotero_query=zotero_query,
+        full_text_query=full_text_query,
+        include_abstract=include_abstract,
+        context_window=context_window,
+        search_timestamp=search_timestamp,
+    )
+
+
+def save_results_to_markdown(
+    results: List[Dict[str, Any]],
+    filename: str,
+    zotero_query: Optional[str] = None,
+    full_text_query: Optional[List[str]] = None,
+    include_abstract: bool = True,
+    context_window: Optional[int] = None,
+    search_timestamp: Optional[str] = None,
+) -> None:
     """Save results to Markdown (backward compatibility function)."""
     handler = ResultHandler()
-    handler.save_results_to_markdown(results, filename)
+    handler.save_results_to_markdown(
+        results,
+        filename,
+        zotero_query=zotero_query,
+        full_text_query=full_text_query,
+        include_abstract=include_abstract,
+        context_window=context_window,
+        search_timestamp=search_timestamp,
+    )
 
 
 def print_results(results: List[Dict[str, Any]]) -> None:

@@ -1,29 +1,22 @@
 Metadata-Version: 2.4
 Name: zotsearch
-Version: 0.2.1
-Summary: Enhanced Zotero Library and Full-Text PDF Search
-Author: ZotSearch Contributors
-Classifier: Development Status :: 4 - Beta
-Classifier: Intended Audience :: Researchers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.7
+Version: 2.1.0
+Summary: Enhanced Zotero library and full-text PDF search
+Author: Francisco Wilhelm
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
-Requires-Dist: pyzotero>=1.5.0
-Requires-Dist: pypdfium2>=4.0.0
-Requires-Dist: nltk>=3.8
-Dynamic: author
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: requires-dist
+Requires-Dist: nltk>=3.9.1
+Requires-Dist: pypdfium2>=5.3.0
+Requires-Dist: pyzotero>=1.8.0
+Requires-Dist: PyYAML>=6.0.1
 Dynamic: requires-python
-Dynamic: summary
 
 # ZotSearch - Enhanced Zotero Library and Full-Text PDF Search
 
 ZotSearch is a Python package that enables users to search their local Zotero library using the API and then search for full-text content within PDFs. It includes multiple output formats (CSV and Markdown) and Zotero URL integration for direct access to search results.
+
 Disclaimer: The project was largely vibe-coded using Claude.
+
 The package is designed to work in conjunction with ZotMoov and a linked file structure, where your PDFs sit in a linked folder (e.g., Onedrive folder) rather than in the Zotero library folder.
 
 The general workflow involves a) including search terms for references in the Zotero library, b) full-text search among the results for a new set of keywords. The output will contain all hits among the references. 
@@ -45,31 +38,47 @@ The general workflow involves a) including search terms for references in the Zo
 
 ## Installation
 
-### Prerequisites
+### Install with uv
 ```bash
-pip install pyzotero pypdfium2
+uv venv .venv
+source .venv/bin/activate
+uv pip install -e .
+```
+
+This installs the project locally in editable mode and exposes the `zotsearch` shell command.
+
+If you want to install it as a uv-managed tool instead of inside a project virtual environment:
+
+```bash
+uv tool install .
 ```
 
 ### Configuration
-1. Set your Zotero User ID and API Key in the script:
-   ```python
-   ZOTERO_USER_ID = 'your_user_id'
-   ZOTERO_API_KEY = 'your_api_key'
-   ```
 
-By default, `local = True` for local API usage. Adapt the respective line for Web API usage.
-For local API usage, user ID should be set to 0. API key is not used for local usage and can take on any value.
+1. For web UI use (local is recommended), set your Zotero User ID and API Key in the script. For local API usage, user ID should be set to 0. API key is not used for local usage and can take on any value. By default, `local = True` for local API usage. Adapt the respective line for Web API usage.
+
+  ```python
+  ZOTERO_USER_ID = 'your_user_id'
+  ZOTERO_API_KEY = 'your_api_key'
+  ```
 
 2. Configure the base attachment path for linked files:
-   ```python
-   BASE_ATTACHMENT_PATH = '/path/to/your/zotero/attachments'
-   ```
+
+    ```python
+    BASE_ATTACHMENT_PATH = '/path/to/your/zotero/attachments'
+    ```
 
 ## Usage
 
 ### Basic Usage
 
-You can use ZotSearch as a Python package or via the command line module interface:
+You can use ZotSearch via the `zotsearch` shell command or the module interface:
+
+```bash
+zotsearch
+```
+
+Equivalent module form:
 
 ```bash
 python -m zotsearch
@@ -80,6 +89,7 @@ This will prompt you for:
 - Full-text search terms (comma-separated list)
 
 After displaying results, you'll be offered output format choices:
+
 ```
 Output options:
 1. CSV file (spreadsheet format)
@@ -92,16 +102,27 @@ Choose output format (1/2/3):
 You can now specify search terms directly via command line arguments for non-interactive use:
 
 ```bash
-python -m zotsearch --zotero "machine learning health" --fulltext "algorithm, bias"
+zotsearch --zotero "career engagement"
+zotsearch --zotero "career engagement" --fulltext "barriers"
+zotsearch --zotero "career engagement" --metadata-only
+zotsearch --zotero "career engagement" --no-abstract
 ```
 - `--zotero` specifies the metadata search string (e.g., title, author, etc.).
-- `--fulltext` specifies the full-text search terms (comma-separated).
+- `--fulltext` optionally specifies the full-text search terms (comma-separated).
+- `--metadata-only` / `--no-fulltext` runs only the metadata search and skips PDF/full-text processing.
+- abstracts are included by default; `--no-abstract` omits them.
+- `--publication` / `--publication-title` filters results by publication title (comma-separated for multiple).
 
 This allows for scripting and automation without interactive prompts. All other output and configuration options remain available.
 
 Example with output:
 ```bash
-python -m zotsearch --zotero "AI ethics" --fulltext "privacy, fairness" --csv results.csv
+zotsearch --zotero "AI ethics" --fulltext "privacy, fairness" --csv results.csv
+```
+
+Example with publication filter (list via comma-separated values):
+```bash
+zotsearch --zotero "AI ethics" --fulltext "privacy, fairness" --publication "Nature, Science"
 ```
 
 
@@ -112,10 +133,10 @@ Save results to CSV format for data analysis and spreadsheet applications:
 
 ```bash
 # Save to specific CSV file
-python -m zotsearch --csv results.csv
+zotsearch --csv results.csv
 
 # Save to CSV only (no console output)
-python -m zotsearch --csv results.csv --csv-only
+zotsearch --csv results.csv --csv-only
 ```
 
 #### Markdown Export
@@ -123,12 +144,20 @@ Save results to Markdown format for research notes and documentation:
 
 ```bash
 # Save to specific Markdown file
-python -m zotsearch --md results.md
-python -m zotsearch --markdown results.md
+zotsearch --md results.md
+zotsearch --markdown results.md
 
 # Save to Markdown only (no console output)
-python -m zotsearch --md results.md --md-only
-python -m zotsearch --markdown results.md --markdown-only
+zotsearch --md results.md --md-only
+zotsearch --markdown results.md --markdown-only
+```
+
+#### JSON Export
+Structured JSON output is saved by default unless `--no-json` is used. You can also specify a filename explicitly:
+
+```bash
+zotsearch --zotero "career engagement" --json results.json
+zotsearch --zotero "career engagement" --no-json
 ```
 
 #### Interactive Output Choice
@@ -145,7 +174,10 @@ The CSV file includes the following columns for structured data analysis:
 | `reference_title` | Title of the reference |
 | `authors` | Author names (Last, First; format) |
 | `publication_year` | Publication year |
+| `publication_title` | Journal or publication title |
+| `doi` | DOI when available |
 | `reference_key` | Zotero item key |
+| `abstract` | Abstract text unless `--no-abstract` is requested |
 | `pdf_filename` | PDF file name |
 | `pdf_key` | PDF attachment key |
 | `page_number` | Page where term was found |
@@ -157,64 +189,118 @@ The CSV file includes the following columns for structured data analysis:
 
 ### Markdown Output Format
 
-The Markdown file creates research-friendly documents with:
+The Markdown output is designed for research note-taking and literature review workflows, and is structured as follows:
 
-- **YAML Frontmatter**: Metadata including title, authors, year, citekey, and tags. Currently multiple YAML frontmatters are returned per markdown file, one for each paper found in the results.
-- **Paper Sections**: Each paper gets its own section with all retrieved text passages
-- **Zotero Integration**: Direct links to papers and specific PDF pages
-- **Annotations Format**: Compatible with research note-taking applications like Obsidian
+- **YAML Frontmatter Block**: At the top, a YAML block contains search metadata, a summary, and a list of all papers found (with title, authors, year, citekey, and Zotero links).
+- **Search Summary and Reference List**: A summary of the search and a numbered reference list for all papers.
+- **Abstracts Section**: By default, a separate abstracts section appears after the reference list unless `--no-abstract` is supplied.
+- **Detailed Paper Sections**: For each paper:
+  - The paper title as a heading.
+  - Metadata bullets: authors, year, citekey, and a direct Zotero link.
+  - An "Annotations" subheading.
+  - Each annotation as a blockquote, followed by a page reference (with a Zotero PDF link).
+  - A horizontal rule (`---`) separates each paper section.
+
+This format is compatible with note-taking applications like Obsidian and supports direct navigation to Zotero items and PDF pages.
 
 #### Example Markdown Structure:
 ```markdown
 ---
-cssclass: research-note
-title: The role of career shocks in contemporary career development
-Year: 2021
-Authors: Akkermans, Jos; Rodrigues, Ricardo; Mol, Stefan T.
-citekey: akkermansRole2021
-tags: Source
-Zotero Link: [Paper.pdf](zotero://select/library/items/ITEMKEY)
+zotsearch-results/v1:
+  search_details:
+    zotero_query: bifactor
+    full_text_query:
+    - psycho
+    search_timestamp: '2025-06-08 17:15:00'
+    context_window: 2
+  summary:
+    total_papers_found: 3
+    total_annotations_found: 17
+  papers:
+  - title: 'Measurement Invariance in Longitudinal Bifactor Models: Review and Application Based on the p Factor'
+    authors:
+    - Neufeld, Sharon A. S.
+    - St Clair, Michelle
+    - Brodbeck, Jeannette
+    - Wilkinson, Paul O.
+    - Goodyer, Ian M.
+    - Jones, Peter B.
+    year: '2024'
+    citekey: 73ZD2D7S
+    zotero_item_key: 73ZD2D7S
+    zotero_select_url: zotero://select/library/items/73ZD2D7S
+  # ... more papers ...
 ---
 
-## The role of career shocks in contemporary career development
+# ZotSearch Results
 
-## Annotations
+## Search Summary
 
-"Disruptive and extraordinary events that are, at least to some degree, caused by factors outside the focal individual's control" Highlight [Page 2](zotero://open-pdf/library/items/PDFKEY?page=2)
+- **Search Date:** 2025-06-08 17:15:00
+- **Zotero Library Query:** `bifactor`
+- **Full-Text Query:** `psycho`
+- **Results:** Found **17** annotations across **3** papers.
 
-"There is still a lack of conceptual clarity of what exactly constitutes a career shock." Highlight [Page 3](zotero://open-pdf/library/items/PDFKEY?page=3)
+### Reference List
+
+1. Neufeld, S., St Clair, M., Brodbeck, J., Wilkinson, P., Goodyer, I., & Jones, P. (2024). *Measurement Invariance in Longitudinal Bifactor Models: Review and Application Based on the p Factor*.
+2. Bornovalova, M., Choate, A., Fatimah, H., Petersen, K., & Wiernik, B. (2020). *Appropriate Use of Bifactor Analysis in Psychopathology Research: Appreciating Benefits and Limitations*.
+3. Watts, A., Poore, H., & Waldman, I. (2019). *Riskier Tests of the Validity of the Bifactor Model of Psychopathology*.
+
+---
+
+## Detailed Findings
+
+### Measurement Invariance in Longitudinal Bifactor Models: Review and Application Based on the p Factor
+
+- **Authors**: Neufeld, Sharon A. S.; St Clair, Michelle; Brodbeck, Jeannette; Wilkinson, Paul O.; Goodyer, Ian M.; Jones, Peter B.
+- **Year**: 2024
+- **Citekey**: `73ZD2D7S`
+- **Zotero Link**: [Open Item in Zotero](zotero://select/library/items/73ZD2D7S)
+
+#### Annotations
+
+> Thus far we have reviewed the importance of establishing longitudinal MI in bifactor models, provided guidance on MI cut-offs to employ when ordered-categorical indicators are utilized, and outlined estimator choices and missing data considerations. ...
+> — Highlight on [Page 8](zotero://open-pdf/library/items/KGDL8AWR?page=8)
+
+> Psychological Assessment, 30(9), 1174–1185. https://doi.org/10.1037/ pas0000564 ...
+> — Highlight on [Page 18](zotero://open-pdf/library/items/KGDL8AWR?page=18)
+
+---
+
+# ... Additional paper sections follow the same structure ...
 ```
 
 ## Quick Start Examples
 
 ### Example 1: Basic Search with Interactive Output Choice
 ```bash
-python -m zotsearch
+zotsearch
 # Enter search terms when prompted
 # Choose output format from the interactive menu
 ```
 
 ### Example 2: Direct Search via Command Line (Non-Interactive)
 ```bash
-python -m zotsearch --zotero "deep learning" --fulltext "convolution, neural network"
+zotsearch --zotero "deep learning" --fulltext "convolution, neural network"
 # Runs search directly with specified terms, no prompts
 ```
 
 ### Example 3: Direct CSV Export
 ```bash
-python -m zotsearch --zotero "AI ethics" --fulltext "privacy, fairness" --csv my_research_results.csv
+zotsearch --zotero "AI ethics" --fulltext "privacy, fairness" --csv my_research_results.csv
 # Results saved to CSV for data analysis
 ```
 
 ### Example 4: Direct Markdown Export for Note-Taking
 ```bash
-python -m zotsearch --zotero "literature review" --fulltext "systematic, meta-analysis" --md literature_review.md
+zotsearch --zotero "literature review" --fulltext "systematic, meta-analysis" --md literature_review.md
 # Results saved to Markdown for research notes
 ```
 
 ### Example 5: Silent Export (No Console Output)
 ```bash
-python -m zotsearch --zotero "machine learning" --fulltext "algorithm, bias" --markdown research_notes.md --markdown-only
+zotsearch --zotero "machine learning" --fulltext "algorithm, bias" --markdown research_notes.md --markdown-only
 # Only creates the Markdown file, no console output
 ```
 
@@ -256,6 +342,8 @@ Results are organized by paper with YAML frontmatter and annotations sections, p
 ## Command Line Arguments
 
 ### Output Options
+- `--json FILENAME`: Save results to specified JSON file
+- `--no-json`: Disable the default JSON export
 - `--csv FILENAME`: Save results to specified CSV file
 - `--csv-only`: Only save to CSV, suppress console output
 - `--md FILENAME` or `--markdown FILENAME`: Save results to specified Markdown file
@@ -263,7 +351,10 @@ Results are organized by paper with YAML frontmatter and annotations sections, p
 
 ### Search Term Options
 - `--zotero "SEARCH TERMS"`: Specify Zotero metadata search terms directly (e.g., `"machine learning health"`)
-- `--fulltext "TERM1, TERM2"`: Specify full-text search terms as a comma-separated list (e.g., `"algorithm, bias"`)
+- `--fulltext "TERM1, TERM2"`: Optionally specify full-text search terms as a comma-separated list (e.g., `"algorithm, bias"`)
+- `--metadata-only` or `--no-fulltext`: Skip PDF/full-text processing and return metadata-only results
+- `--no-abstract`: Omit abstracts from output
+- `--publication "TITLE1, TITLE2"` or `--publication-title "TITLE1, TITLE2"`: Filter results by publication title (comma-separated list). Example: `"Nature, Science"`
 
 ### Other Options
 - `--config CONFIG`: Path to configuration file (JSON format)
@@ -272,6 +363,9 @@ Results are organized by paper with YAML frontmatter and annotations sections, p
 - `--context-window N`: Context sentence window size (default: 2). The default means 2 sentences before and after the keyword is found will be returned. Larger window sizes will return more sentences.
 - `--version`: Show version information
 - `--help`: Show help message
+
+### Environment Variables
+- `ZOTERO_PUBLICATION_TITLE_FILTER`: Filter results by publication title (comma-separated list). Example: `Nature, Science`
 
 ## Error Handling
 

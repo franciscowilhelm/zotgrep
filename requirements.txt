@@ -2,10 +2,10 @@
 # Core dependencies for the modular ZotSearch application
 
 # Zotero API interaction
-pyzotero>=1.5.0
+pyzotero>=1.8.0
 
 # PDF text extraction
-pypdfium2>=4.0.0
+pypdfium2>=5.3.0
 
 # Natural language processing
 nltk>=3.8
