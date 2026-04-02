@@ -9,11 +9,62 @@ import unittest
 import tempfile
 import os
 import csv
+import types
 from datetime import datetime
 from unittest.mock import patch
 
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def _install_dependency_stubs():
+    if "pyzotero" not in sys.modules:
+        pyzotero_module = types.ModuleType("pyzotero")
+        zotero_module = types.ModuleType("zotero")
+
+        class DummyZotero:
+            pass
+
+        zotero_module.Zotero = DummyZotero
+        pyzotero_module.zotero = zotero_module
+        sys.modules["pyzotero"] = pyzotero_module
+        sys.modules["pyzotero.zotero"] = zotero_module
+
+    if "nltk" not in sys.modules:
+        nltk_module = types.ModuleType("nltk")
+
+        class Downloader:
+            DownloadError = LookupError
+
+        class Data:
+            @staticmethod
+            def find(_path):
+                return True
+
+        nltk_module.downloader = Downloader
+        nltk_module.data = Data()
+        nltk_module.download = lambda _name: True
+        nltk_module.sent_tokenize = lambda text: [text]
+        sys.modules["nltk"] = nltk_module
+
+    if "pypdfium2" not in sys.modules:
+        pdfium_module = types.ModuleType("pypdfium2")
+
+        class PdfDocument:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            def __iter__(self):
+                return iter([])
+
+            def close(self):
+                return None
+
+        pdfium_module.PdfDocument = PdfDocument
+        sys.modules["pypdfium2"] = pdfium_module
+
+
+_install_dependency_stubs()
 
 from zotsearch.result_handler import (
     ResultHandler,
@@ -339,9 +390,9 @@ class TestResultHandler(unittest.TestCase):
 
         # Test with results
         results = [
-            {'reference_key': 'REF1', 'pdf_key': 'PDF1'},
-            {'reference_key': 'REF1', 'pdf_key': 'PDF2'},
-            {'reference_key': 'REF2', 'pdf_key': 'PDF3'},
+            {'reference_key': 'REF1', 'pdf_key': 'PDF1', 'search_term_found': 'term'},
+            {'reference_key': 'REF1', 'pdf_key': 'PDF2', 'search_term_found': 'term'},
+            {'reference_key': 'REF2', 'pdf_key': 'PDF3', 'search_term_found': 'term'},
         ]
 
         summary = self.handler.format_result_summary(results)
@@ -390,7 +441,11 @@ class TestResultHandler(unittest.TestCase):
 
         try:
             # Save results
-            self.handler.save_results_to_markdown(results, tmp_filename)
+            self.handler.save_results_to_markdown(
+                results,
+                tmp_filename,
+                full_text_query=['algorithm', 'machine learning', 'neural network'],
+            )
 
             # Verify file exists and has correct content
             self.assertTrue(os.path.exists(tmp_filename))
@@ -418,9 +473,15 @@ class TestResultHandler(unittest.TestCase):
                 self.assertIn('**Citekey**: `SMITH2023`', content)
                 self.assertIn('## Abstracts', content)
                 self.assertIn('No abstract available.', content)
+                self.assertIn('#### Term Summary', content)
+                self.assertIn('- `algorithm`: 1 occurrence', content)
+                self.assertIn('- `machine learning`: 1 occurrence', content)
+                self.assertIn('- `neural network`: 1 occurrence', content)
                 self.assertIn('#### Annotations', content)
-                self.assertIn('The machine learning algorithm demonstrated significant improvements.', content)
-                self.assertIn('Neural networks have shown promising results in this domain.', content)
+                self.assertIn('##### Occurrence #1, Page 5', content)
+                self.assertIn('##### Occurrence #2, Page 7', content)
+                self.assertIn('The **machine learning** **algorithm** demonstrated significant improvements.', content)
+                self.assertIn('**Neural network**s have shown promising results in this domain.', content)
                 self.assertIn('[Page 5](zotero://open-pdf/library/items/PDF123?page=5)', content)
                 self.assertIn('[Page 7](zotero://open-pdf/library/items/PDF123?page=7)', content)
 
@@ -669,6 +730,7 @@ class TestResultHandler(unittest.TestCase):
             }
         ]
         mock_search_engine_instance.get_search_summary.return_value = "Found 1 reference."
+        mock_result_handler_instance = mock_result_handler.return_value
 
         test_args = ['--zotero', 'test zotero', '--md', 'test_output.md']
         with patch.object(sys, 'argv', ['zotsearch'] + test_args):
@@ -716,6 +778,7 @@ class TestResultHandler(unittest.TestCase):
             }
         ]
         mock_search_engine_instance.get_search_summary.return_value = "Found 1 reference."
+        mock_result_handler_instance = mock_result_handler.return_value
 
         test_args = ['--zotero', 'test zotero', '--md', 'test_output.md']
         with patch.object(sys, 'argv', ['zotsearch'] + test_args):

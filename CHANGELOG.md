@@ -1,5 +1,26 @@
 # Changelog
 
+## 3.0.0 - Unreleased
+
+### Added
+
+- A dedicated Flask-based web interface with a separate `General Settings` page, persistent user settings, and export actions for CSV, JSON, and Markdown.
+- User config file support via `~/.config/zotsearch/config.json`, plus `--config` and `ZOTSEARCH_CONFIG_PATH` for custom config locations.
+- Focused regression tests for config behavior, search-engine attachment handling, web settings persistence, and richer Markdown output.
+- Deferred feature notes for future attachment-selection modes and Zotero `fulltext_item()` support in `suggested_changes.md`.
+
+### Changed
+
+- Full-text attachment handling now supports both linked attachments and Zotero-stored PDFs, including `imported_url` attachments retrieved through `pyzotero`.
+- `BASE_ATTACHMENT_PATH` is now optional and only required for linked-file workflows.
+- Web search results are grouped by reference, show per-term occurrence summaries, and collapse to the first 10 hits per paper with an expand control.
+- Markdown output now summarizes per-reference full-text term counts before numbered occurrence sections.
+- Documentation now reflects the config-file workflow, linked-vs-stored attachment behavior, and web UI usage.
+
+### Internal
+
+- Removed tracked Python bytecode caches from the release commit and reinforced cache ignores in `.gitignore`.
+
 ## 2.1.0 - 2026-03-23
 
 ### Added

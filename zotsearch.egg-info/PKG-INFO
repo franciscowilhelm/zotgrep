@@ -5,6 +5,7 @@ Summary: Enhanced Zotero library and full-text PDF search
 Author: Francisco Wilhelm
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
+Requires-Dist: flask>=3.0
 Requires-Dist: nltk>=3.9.1
 Requires-Dist: pypdfium2>=5.3.0
 Requires-Dist: pyzotero>=1.8.0
@@ -15,9 +16,11 @@ Dynamic: requires-python
 
 ZotSearch is a Python package that enables users to search their local Zotero library using the API and then search for full-text content within PDFs. It includes multiple output formats (CSV and Markdown) and Zotero URL integration for direct access to search results.
 
-Disclaimer: The project was largely vibe-coded using Claude.
+Credits: ZotSearch builds on [pyzotero](https://github.com/urschrei/pyzotero) by Stephan Hugel.
 
-The package is designed to work in conjunction with ZotMoov and a linked file structure, where your PDFs sit in a linked folder (e.g., Onedrive folder) rather than in the Zotero library folder.
+Disclaimer: The project was largely vibe-coded using Claude and ChatGPT.
+
+The package was originally designed around ZotMoov and a linked file structure, where PDFs sit in a linked folder (e.g., OneDrive) rather than in the Zotero library folder. It now also works with Zotero-stored PDF attachments by downloading the attachment bytes via `pyzotero`.
 
 The general workflow involves a) including search terms for references in the Zotero library, b) full-text search among the results for a new set of keywords. The output will contain all hits among the references. 
 
@@ -62,11 +65,13 @@ uv tool install .
   ZOTERO_API_KEY = 'your_api_key'
   ```
 
-2. Configure the base attachment path for linked files:
+2. If you use linked files, configure the base attachment path:
 
     ```python
     BASE_ATTACHMENT_PATH = '/path/to/your/zotero/attachments'
     ```
+
+   If you use only Zotero-stored files, you can leave `BASE_ATTACHMENT_PATH` unset.
 
 ## Usage
 

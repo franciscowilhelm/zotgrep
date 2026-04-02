@@ -6,7 +6,7 @@ Credits: ZotSearch builds on [pyzotero](https://github.com/urschrei/pyzotero) by
 
 Disclaimer: The project was largely vibe-coded using Claude and ChatGPT.
 
-The package is designed to work in conjunction with ZotMoov and a linked file structure, where your PDFs sit in a linked folder (e.g., Onedrive folder) rather than in the Zotero library folder.
+The package was originally designed around ZotMoov and a linked file structure, where PDFs sit in a linked folder (e.g., OneDrive) rather than in the Zotero library folder. It now also works with Zotero-stored PDF attachments by downloading the attachment bytes via `pyzotero`.
 
 The general workflow involves a) including search terms for references in the Zotero library, b) full-text search among the results for a new set of keywords. The output will contain all hits among the references. 
 
@@ -44,18 +44,40 @@ uv tool install .
 
 ### Configuration
 
-1. For web UI use (local is recommended), set your Zotero User ID and API Key in the script. For local API usage, user ID should be set to 0. API key is not used for local usage and can take on any value. By default, `local = True` for local API usage. Adapt the respective line for Web API usage.
+ZotSearch now supports a user config file for persistent defaults. The recommended path is:
 
-  ```python
-  ZOTERO_USER_ID = 'your_user_id'
-  ZOTERO_API_KEY = 'your_api_key'
-  ```
+```bash
+~/.config/zotsearch/config.json
+```
 
-2. Configure the base attachment path for linked files:
+You can manage these settings either:
 
-    ```python
-    BASE_ATTACHMENT_PATH = '/path/to/your/zotero/attachments'
-    ```
+- manually by creating that JSON file
+- via the web UI under `General Settings`
+- by pointing to another file with `--config PATH` or `ZOTSEARCH_CONFIG_PATH`
+
+Typical persistent settings include:
+
+```json
+{
+  "use_local_api": true,
+  "zotero_user_id": "0",
+  "zotero_api_key": "local",
+  "library_type": "user",
+  "base_attachment_path": "/path/to/your/linked/pdfs",
+  "max_results_stage1": 100,
+  "context_sentence_window": 2
+}
+```
+
+If you use only Zotero-stored files, leave `base_attachment_path` empty.
+
+Environment variables still work and override config-file values at runtime. The most relevant ones are:
+
+```bash
+export ZOTERO_BASE_ATTACHMENT_PATH='/path/to/your/zotero/attachments'
+export ZOTSEARCH_CONFIG_PATH='/path/to/custom/config.json'
+```
 
 ## Usage
 
@@ -113,6 +135,16 @@ Example with publication filter (list via comma-separated values):
 ```bash
 zotsearch --zotero "AI ethics" --fulltext "privacy, fairness" --publication "Nature, Science"
 ```
+
+### Web Interface
+
+Launch the local web interface with:
+
+```bash
+zotsearch --web
+```
+
+Use the `General Settings` page to save defaults such as linked-file paths and API mode. The main search page then uses those saved defaults and keeps only per-search inputs in the form.
 
 
 ### Output Format Options
@@ -354,6 +386,8 @@ Results are organized by paper with YAML frontmatter and annotations sections, p
 - `--help`: Show help message
 
 ### Environment Variables
+- `ZOTSEARCH_CONFIG_PATH`: Use a custom user config file path
+- `ZOTERO_BASE_ATTACHMENT_PATH`: Base directory for linked-file attachments
 - `ZOTERO_PUBLICATION_TITLE_FILTER`: Filter results by publication title (comma-separated list). Example: `Nature, Science`
 
 ## Error Handling
@@ -411,7 +445,7 @@ Running `python test_zotsearch.py` is deprecated. Please use the package-based t
 
 ### Common Issues
 
-1. **PDF not found errors**: Verify `BASE_ATTACHMENT_PATH` is correctly set
+1. **PDF not found errors**: For linked files, verify `BASE_ATTACHMENT_PATH` is correctly set; for Zotero-stored files, verify the attachment is available through Zotero
 2. **API connection failures**: Check Zotero credentials and internet connection
 3. **Empty search results**: Try broader search terms or check PDF text extraction
 4. **File encoding issues**: Both CSV and Markdown files use UTF-8 encoding for international characters
@@ -421,7 +455,7 @@ Running `python test_zotsearch.py` is deprecated. Please use the package-based t
 ### Debug Tips
 
 - Check Zotero sync status
-- Verify PDF files are accessible at the specified paths
+- For linked files, verify PDF files are accessible at the specified paths
 - Test with simple search terms first
 - Review console output for detailed error messages
 - For Markdown issues, check that special characters are properly handled

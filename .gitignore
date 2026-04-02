@@ -3,6 +3,7 @@
 
 # Python caches and virtual environments
 __pycache__/
+**/__pycache__/
 *.py[cod]
 .python-version
 .venv/
@@ -24,7 +25,5 @@ dist/
 zotero_search_results_*.csv
 zotero_search_results_*.md
 zotero_search_results_*.json
-.DS_Store
-/zotsearch/__pycache__
 /csm_profiles
 /pdf_intro_extractor_job

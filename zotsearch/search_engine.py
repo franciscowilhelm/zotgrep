@@ -30,6 +30,7 @@ class ZoteroSearchEngine:
         self.text_analyzer = TextAnalyzer(config.context_sentence_window)
         self.result_handler = ResultHandler()
         self.zot_conn = None
+        self.warnings: List[str] = []
         
     def connect_to_zotero(self) -> bool:
         """
@@ -279,13 +280,21 @@ class ZoteroSearchEngine:
         if link_mode == 'linked_file':
             if not pdf_info['path']:
                 return None
+            if not self.config.base_attachment_path:
+                warning = (
+                    f"Skipping linked PDF {pdf_info['key']}: "
+                    "BASE_ATTACHMENT_PATH is not configured."
+                )
+                self.warnings.append(warning)
+                print(f"    {warning}")
+                return None
             
             return self.pdf_processor.process_linked_pdf(
                 self.config.base_attachment_path,
                 pdf_info['path']
             )
             
-        elif link_mode == 'imported_file':
+        elif link_mode in {'imported_file', 'imported_url'}:
             try:
                 pdf_bytes_content = self.zot_conn.file(pdf_info['key'])
                 if not pdf_bytes_content:
@@ -294,7 +303,7 @@ class ZoteroSearchEngine:
                 return self.pdf_processor.process_imported_pdf(pdf_bytes_content)
                 
             except Exception as e:
-                print(f"    Error downloading or processing imported PDF {pdf_info['key']}: {e}")
+                print(f"    Error downloading or processing stored PDF {pdf_info['key']}: {e}")
                 return None
         
         return None

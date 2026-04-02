@@ -1,6 +1,9 @@
 # ZotSearch Requirements
 # Core dependencies for the modular ZotSearch application
 
+# Web interface
+flask>=3.0
+
 # Zotero API interaction
 pyzotero>=1.8.0
 

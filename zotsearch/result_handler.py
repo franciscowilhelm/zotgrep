@@ -269,7 +269,8 @@ class ResultHandler:
     def _group_results_by_reference(
         self,
         results: List[Dict[str, Any]],
-        has_full_text_results: bool
+        has_full_text_results: bool,
+        full_text_query: Optional[List[str]] = None,
     ) -> Dict[str, Dict[str, Any]]:
         """
         Group flat result rows by Zotero reference key.
@@ -280,6 +281,9 @@ class ResultHandler:
             ref_key = result['reference_key']
             if ref_key not in papers:
                 authors_list = [a.strip() for a in result['authors'].split(';')] if result['authors'] != 'N/A' else []
+                term_counts = {
+                    term: 0 for term in (full_text_query or []) if term
+                }
                 papers[ref_key] = {
                     'title': result['reference_title'],
                     'authors': authors_list,
@@ -290,19 +294,30 @@ class ResultHandler:
                     'citekey': ref_key,
                     'zotero_item_key': ref_key,
                     'zotero_select_url': result['zotero_item_url'],
+                    'term_counts': term_counts,
                     'annotations': []
                 }
 
             if has_full_text_results and (
                 result.get('context') or result.get('page_number') or result.get('zotero_pdf_url')
             ):
+                terms_found = self._parse_terms_found(result.get('search_term_found', ''))
+                for term in terms_found:
+                    current = papers[ref_key]['term_counts'].get(term, 0)
+                    papers[ref_key]['term_counts'][term] = current + 1
                 papers[ref_key]['annotations'].append({
                     'text': result['context'],
                     'page': result['page_number'],
                     'pdf_attachment_key': result['pdf_key'],
                     'zotero_pdf_url': result['zotero_pdf_url'],
-                    'terms_found': result.get('search_term_found', ''),
+                    'terms_found': ', '.join(terms_found),
                 })
+
+        for paper in papers.values():
+            paper['term_counts'] = [
+                {'term': term, 'count': count}
+                for term, count in paper['term_counts'].items()
+            ]
 
         return papers
 
@@ -322,7 +337,11 @@ class ResultHandler:
             result.get('search_term_found') or result.get('context') or result.get('zotero_pdf_url')
             for result in results
         )
-        papers = self._group_results_by_reference(results, has_full_text_results)
+        papers = self._group_results_by_reference(
+            results,
+            has_full_text_results,
+            full_text_query=full_text_query,
+        )
         total_papers = len(papers)
         total_annotations = sum(len(p['annotations']) for p in papers.values())
 
@@ -503,11 +522,19 @@ class ResultHandler:
                             mdfile.write(f"- **DOI**: {self._format_doi_url(paper['doi'])}\n")
                         mdfile.write(f"- **Citekey**: `{paper['citekey']}`\n")
                         mdfile.write(f"- **Zotero Link**: [Open Item in Zotero]({paper['zotero_select_url']})\n\n")
+                        mdfile.write("#### Term Summary\n\n")
+                        for term_info in paper.get('term_counts', []):
+                            label = 'occurrence' if term_info['count'] == 1 else 'occurrences'
+                            mdfile.write(f"- `{term_info['term']}`: {term_info['count']} {label}\n")
+                        mdfile.write("\n")
                         mdfile.write("#### Annotations\n\n")
                         highlight_terms = self._build_highlight_terms(zotero_query, full_text_query)
-                        for annotation in paper['annotations']:
+                        for annotation_index, annotation in enumerate(paper['annotations'], 1):
                             context = self._clean_context_for_markdown(annotation['text'])
                             context = self._highlight_terms_for_markdown(context, highlight_terms)
+                            mdfile.write(
+                                f"##### Occurrence #{annotation_index}, Page {annotation['page']}\n\n"
+                            )
                             mdfile.write(f"> {context}\n")
                             mdfile.write(f"> - Highlight on [Page {annotation['page']}]({annotation['zotero_pdf_url']})\n\n")
                         mdfile.write("---\n\n")
@@ -690,6 +717,14 @@ class ResultHandler:
         pattern = re.compile("|".join(re.escape(t) for t in terms_sorted), re.IGNORECASE)
 
         return pattern.sub(lambda m: f"**{m.group(0)}**", text)
+
+    def _parse_terms_found(self, terms_found: str) -> List[str]:
+        """
+        Parse the serialized terms list stored on a result row.
+        """
+        if not terms_found:
+            return []
+        return [term.strip() for term in terms_found.split(',') if term.strip()]
     
     def print_results(self, results: List[Dict[str, Any]]) -> None:
         """

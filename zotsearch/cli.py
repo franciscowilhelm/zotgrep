@@ -146,11 +146,24 @@ Examples:
         )
         
         parser.add_argument(
+            '--web',
+            action='store_true',
+            help='Launch web interface instead of CLI'
+        )
+
+        parser.add_argument(
+            '--port',
+            type=int,
+            default=5555,
+            help='Port for web interface (default: 5555)'
+        )
+
+        parser.add_argument(
             '--version',
             action='version',
             version='ZotSearch 2.1.0'
         )
-        
+
         return parser.parse_args()
     
     def get_search_terms_interactive(self) -> Tuple[str, List[str]]:
@@ -192,13 +205,13 @@ Examples:
             print(f"Configuration Error: {e}")
             
             if "BASE_ATTACHMENT_PATH" in str(e):
-                print("\nPlease set the BASE_ATTACHMENT_PATH to your Zotero attachments directory.")
-                print("This is typically something like:")
-                print("  - macOS: /Users/yourname/Zotero/storage")
-                print("  - Windows: C:\\Users\\yourname\\Zotero\\storage")
-                print("  - Linux: /home/yourname/Zotero/storage")
-                print("\nOr if using linked files with zotmoov:")
-                print("  - The directory where your linked PDFs are stored")
+                print("\nBASE_ATTACHMENT_PATH is only needed for linked-file workflows.")
+                print("Set it to the directory where your linked PDFs live.")
+                print("Examples:")
+                print("  - macOS: /Users/yourname/OneDrive/ZoteroAttachments")
+                print("  - Windows: C:\\Users\\yourname\\OneDrive\\ZoteroAttachments")
+                print("  - Linux: /home/yourname/ZoteroAttachments")
+                print("\nIf you use Zotero-stored files only, you can leave BASE_ATTACHMENT_PATH unset.")
             
             elif "ZOTERO_USER_ID" in str(e) or "ZOTERO_API_KEY" in str(e):
                 print("\nFor remote Zotero API access, please configure:")
@@ -219,7 +232,7 @@ Examples:
             Configuration object
         """
         # Start with default config
-        config = get_config()
+        config = get_config(config_path=args.config)
         
         # Override with command-line arguments
         if args.base_path:
@@ -325,7 +338,15 @@ Examples:
         try:
             # Parse arguments
             args = self.parse_arguments()
-            
+
+            # Launch web interface if requested
+            if args.web:
+                from .web import create_app
+                app = create_app()
+                print(f"Starting ZotSearch web interface at http://localhost:{args.port}")
+                app.run(host="127.0.0.1", port=args.port, debug=False)
+                return 0
+
             # Create configuration
             config = self.create_config_from_args(args)
             

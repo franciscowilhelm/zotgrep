@@ -2,7 +2,9 @@ README.md
 pyproject.toml
 setup.py
 tests/__init__.py
+tests/test_config.py
 tests/test_result_handler.py
+tests/test_search_engine.py
 zotsearch/__init__.py
 zotsearch/__main__.py
 zotsearch/cli.py
@@ -11,6 +13,7 @@ zotsearch/pdf_processor.py
 zotsearch/result_handler.py
 zotsearch/search_engine.py
 zotsearch/text_analyzer.py
+zotsearch/web.py
 zotsearch.egg-info/PKG-INFO
 zotsearch.egg-info/SOURCES.txt
 zotsearch.egg-info/dependency_links.txt
