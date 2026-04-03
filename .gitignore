@@ -21,7 +21,7 @@ build/
 dist/
 *.egg-info/
 
-# Generated ZotSearch outputs
+# Generated ZotGrep outputs
 zotero_search_results_*.csv
 zotero_search_results_*.md
 zotero_search_results_*.json

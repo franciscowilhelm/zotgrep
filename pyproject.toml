@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "zotsearch"
+name = "zotgrep"
 version = "2.1.0"
 description = "Enhanced Zotero library and full-text PDF search"
 readme = "README.md"
@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.scripts]
-zotsearch = "zotsearch.cli:main"
+zotgrep = "zotgrep.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["zotsearch*"]
+include = ["zotgrep*"]

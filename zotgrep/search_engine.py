@@ -1,5 +1,5 @@
 """
-Search engine module for ZotSearch.
+Search engine module for ZotGrep.
 
 This module contains the core search logic that orchestrates Zotero metadata search,
 PDF full-text search, and result processing.
@@ -9,7 +9,7 @@ import nltk
 from typing import List, Dict, Any, Optional, Tuple
 from pyzotero import zotero
 
-from .config import ZotSearchConfig
+from .config import ZotGrepConfig
 from .pdf_processor import PDFProcessor
 from .text_analyzer import TextAnalyzer
 from .result_handler import ResultHandler
@@ -18,12 +18,12 @@ from .result_handler import ResultHandler
 class ZoteroSearchEngine:
     """Main search engine that orchestrates the search process."""
     
-    def __init__(self, config: ZotSearchConfig):
+    def __init__(self, config: ZotGrepConfig):
         """
         Initialize the search engine.
         
         Args:
-            config: ZotSearch configuration object
+            config: ZotGrep configuration object
         """
         self.config = config
         self.pdf_processor = PDFProcessor()
@@ -44,7 +44,7 @@ class ZoteroSearchEngine:
                 self.config.zotero_user_id,
                 self.config.library_type,
                 self.config.zotero_api_key,
-                local=self.config.use_local_api
+                local=True,
             )
             
             # Test connection
@@ -414,10 +414,10 @@ def search_zotero_and_full_text(zot_conn, base_attachment_dir: str,
     Returns:
         List of findings
     """
-    from .config import ZotSearchConfig
+    from .config import ZotGrepConfig
     
     # Create config from parameters
-    config = ZotSearchConfig(
+    config = ZotGrepConfig(
         base_attachment_path=base_attachment_dir,
         max_results_stage1=max_results_stage1
     )

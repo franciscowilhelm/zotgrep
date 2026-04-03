@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
 """
-Test script for the enhanced zotsearch functionality.
+Test script for the enhanced zotgrep functionality.
 This script demonstrates the new CSV export and Zotero URL features
-using both the legacy zotsearch.py and the new modular structure.
+using the current package structure.
 """
 
 import sys
 import os
 sys.path.append('.')
 
-# Test both legacy and new modular imports
+# Test package imports
 try:
-    # Try new modular structure first
-    from zotsearch.result_handler import generate_zotero_url, save_results_to_csv
-    print("Using new modular structure")
+    from zotgrep.result_handler import generate_zotero_url, save_results_to_csv
+    print("Using package structure")
 except ImportError:
-    # Fall back to legacy structure
-    from zotsearch import generate_zotero_url, save_results_to_csv
-    print("Using legacy structure")
+    from zotgrep import generate_zotero_url, save_results_to_csv
+    print("Using package root imports")
 
 from datetime import datetime
 
@@ -106,13 +104,13 @@ def test_csv_export():
 
 def main():
     """Run all tests."""
-    print("=== Enhanced ZotSearch Functionality Tests ===\n")
+    print("=== Enhanced ZotGrep Functionality Tests ===\n")
     
     test_zotero_url_generation()
     test_csv_export()
     
     print("=== All Tests Completed ===")
-    print("\nNew features added to zotsearch.py:")
+    print("\nKey package features:")
     print("• CSV export with --csv filename.csv option")
     print("• Enhanced metadata (authors, publication year)")
     print("• Zotero URLs for direct access to items and PDF pages")

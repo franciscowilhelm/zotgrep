@@ -1,5 +1,5 @@
 """
-Command-line interface module for ZotSearch.
+Command-line interface module for ZotGrep.
 
 This module handles argument parsing, user interaction, and CLI-specific functionality.
 """
@@ -8,13 +8,13 @@ import argparse
 import sys
 from typing import List, Tuple, Optional
 
-from .config import ZotSearchConfig, get_config, print_config_info
+from .config import ZotGrepConfig, get_config, print_config_info
 from .search_engine import ZoteroSearchEngine
 from .result_handler import ResultHandler
 
 
-class ZotSearchCLI:
-    """Command-line interface for ZotSearch."""
+class ZotGrepCLI:
+    """Command-line interface for ZotGrep."""
     
     def __init__(self):
         """Initialize CLI."""
@@ -161,7 +161,7 @@ Examples:
         parser.add_argument(
             '--version',
             action='version',
-            version='ZotSearch 2.1.0'
+            version='ZotGrep 2.1.0'
         )
 
         return parser.parse_args()
@@ -173,7 +173,7 @@ Examples:
         Returns:
             Tuple of (metadata_query, full_text_terms_list)
         """
-        print("\n=== ZotSearch - Interactive Mode ===")
+        print("\n=== ZotGrep - Interactive Mode ===")
         
         metadata_query = input("Enter Zotero metadata search terms (e.g., 'machine learning health'): ").strip()
         if not metadata_query:
@@ -188,7 +188,7 @@ Examples:
         
         return metadata_query, full_text_terms_list
     
-    def validate_config(self, config: ZotSearchConfig) -> bool:
+    def validate_config(self, config: ZotGrepConfig) -> bool:
         """
         Validate configuration and show helpful error messages.
         
@@ -213,15 +213,9 @@ Examples:
                 print("  - Linux: /home/yourname/ZoteroAttachments")
                 print("\nIf you use Zotero-stored files only, you can leave BASE_ATTACHMENT_PATH unset.")
             
-            elif "ZOTERO_USER_ID" in str(e) or "ZOTERO_API_KEY" in str(e):
-                print("\nFor remote Zotero API access, please configure:")
-                print("  - ZOTERO_USER_ID: Your Zotero user ID")
-                print("  - ZOTERO_API_KEY: Your Zotero API key")
-                print("\nFor local API access (default), these can remain as defaults.")
-            
             return False
     
-    def create_config_from_args(self, args: argparse.Namespace) -> ZotSearchConfig:
+    def create_config_from_args(self, args: argparse.Namespace) -> ZotGrepConfig:
         """
         Create configuration from command-line arguments.
         
@@ -343,7 +337,7 @@ Examples:
             if args.web:
                 from .web import create_app
                 app = create_app()
-                print(f"Starting ZotSearch web interface at http://localhost:{args.port}")
+                print(f"Starting ZotGrep web interface at http://localhost:{args.port}")
                 app.run(host="127.0.0.1", port=args.port, debug=False)
                 return 0
 
@@ -428,7 +422,7 @@ def main() -> int:
     Returns:
         Exit code
     """
-    cli = ZotSearchCLI()
+    cli = ZotGrepCLI()
     return cli.run()
 
 
@@ -437,6 +431,6 @@ if __name__ == "__main__":
         "\n[DEPRECATION WARNING]\n"
         "Direct execution of 'cli.py' as a script is deprecated and will be removed in a future release.\n"
         "Please use the package interface instead:\n"
-        "    zotsearch\n"
+        "    zotgrep\n"
     )
     sys.exit(main())

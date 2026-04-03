@@ -1,5 +1,5 @@
-# ZotSearch Requirements
-# Core dependencies for the modular ZotSearch application
+# ZotGrep Requirements
+# Core dependencies for the modular ZotGrep application
 
 # Web interface
 flask>=3.0

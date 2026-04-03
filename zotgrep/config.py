@@ -1,5 +1,5 @@
 """
-Configuration management for ZotSearch.
+Configuration management for ZotGrep.
 
 This module handles defaults, user config files, environment overrides,
 and runtime validation.
@@ -11,13 +11,13 @@ from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional
 
 
-CONFIG_PATH_ENV_VAR = "ZOTSEARCH_CONFIG_PATH"
-DEFAULT_CONFIG_PATH = os.path.join("~", ".config", "zotsearch", "config.json")
+CONFIG_PATH_ENV_VAR = "ZOTGREP_CONFIG_PATH"
+DEFAULT_CONFIG_PATH = os.path.join("~", ".config", "zotgrep", "config.json")
 
 
 @dataclass
-class ZotSearchConfig:
-    """Configuration class for ZotSearch application."""
+class ZotGrepConfig:
+    """Configuration class for ZotGrep application."""
 
     # Zotero API Configuration
     zotero_user_id: str = "0"
@@ -33,7 +33,7 @@ class ZotSearchConfig:
     publication_title_filter: Optional[List[str]] = None
     debug_publication_filter: bool = False
 
-    # Local API flag
+    # Internal compatibility flag. ZotGrep only supports the local Zotero API.
     use_local_api: bool = True
 
     def __post_init__(self):
@@ -48,15 +48,15 @@ class ZotSearchConfig:
 
     def to_dict(self) -> Dict[str, Any]:
         """Return a JSON-serializable representation of the config."""
-        return asdict(self)
+        values = asdict(self)
+        values.pop("use_local_api", None)
+        return values
 
     def _validate_zotero_config(self) -> None:
         """Validate Zotero API configuration."""
-        if not self.use_local_api:
-            if self.zotero_user_id in ["your_user_id", ""]:
-                raise ValueError("ZOTERO_USER_ID must be set for remote API usage")
-            if self.zotero_api_key in ["your_api_key", ""]:
-                raise ValueError("ZOTERO_API_KEY must be set for remote API usage")
+        # Full-text search relies on Zotero's local API. Ignore any stale config/env
+        # attempts to switch this off after the project rename.
+        self.use_local_api = True
 
         if self.library_type not in ["user", "group"]:
             raise ValueError("LIBRARY_TYPE must be either 'user' or 'group'")
@@ -87,7 +87,7 @@ def get_user_config_path(config_path: Optional[str] = None) -> str:
     return os.path.abspath(os.path.expanduser(raw_path))
 
 
-def load_config_from_file(config_path: Optional[str] = None) -> ZotSearchConfig:
+def load_config_from_file(config_path: Optional[str] = None) -> ZotGrepConfig:
     """Load configuration from the user config file only."""
     config = create_default_config()
     _apply_config_values(config, _load_config_file_values(config_path, missing_ok=True))
@@ -95,7 +95,7 @@ def load_config_from_file(config_path: Optional[str] = None) -> ZotSearchConfig:
     return config
 
 
-def save_config_to_file(config: ZotSearchConfig, config_path: Optional[str] = None) -> str:
+def save_config_to_file(config: ZotGrepConfig, config_path: Optional[str] = None) -> str:
     """Persist configuration to disk as JSON."""
     path = get_user_config_path(config_path)
     config.validate()
@@ -106,7 +106,7 @@ def save_config_to_file(config: ZotSearchConfig, config_path: Optional[str] = No
     return path
 
 
-def load_config_from_env() -> ZotSearchConfig:
+def load_config_from_env() -> ZotGrepConfig:
     """Load configuration from environment variables."""
     config = create_default_config()
     _apply_env_overrides(config)
@@ -114,9 +114,9 @@ def load_config_from_env() -> ZotSearchConfig:
     return config
 
 
-def create_default_config() -> ZotSearchConfig:
+def create_default_config() -> ZotGrepConfig:
     """Create default configuration."""
-    return ZotSearchConfig(
+    return ZotGrepConfig(
         zotero_user_id="0",
         zotero_api_key="local",
         library_type="user",
@@ -132,7 +132,7 @@ def create_default_config() -> ZotSearchConfig:
 def get_config(
     config_dict: Optional[Dict[str, Any]] = None,
     config_path: Optional[str] = None,
-) -> ZotSearchConfig:
+) -> ZotGrepConfig:
     """
     Get configuration from defaults, file, environment, and explicit overrides.
 
@@ -151,10 +151,10 @@ def get_config(
     return config
 
 
-def print_config_info(config: ZotSearchConfig) -> None:
+def print_config_info(config: ZotGrepConfig) -> None:
     """Print configuration information for debugging."""
     print(f"Using base attachment path: {config.base_attachment_path}")
-    print(f"Zotero API: {'Local' if config.use_local_api else 'Remote'}")
+    print("Zotero API: Local")
     print(f"Library type: {config.library_type}")
     print(f"Max results (stage 1): {config.max_results_stage1}")
     print(f"Context sentence window: {config.context_sentence_window}")
@@ -193,18 +193,20 @@ def _load_config_file_values(
     return {
         key: value
         for key, value in values.items()
-        if key in ZotSearchConfig.__dataclass_fields__
+        if key in ZotGrepConfig.__dataclass_fields__
     }
 
 
-def _apply_config_values(config: ZotSearchConfig, values: Dict[str, Any]) -> None:
+def _apply_config_values(config: ZotGrepConfig, values: Dict[str, Any]) -> None:
     for key, value in values.items():
-        if key not in ZotSearchConfig.__dataclass_fields__:
+        if key not in ZotGrepConfig.__dataclass_fields__:
+            continue
+        if key == "use_local_api":
             continue
         setattr(config, key, value)
 
 
-def _apply_env_overrides(config: ZotSearchConfig) -> None:
+def _apply_env_overrides(config: ZotGrepConfig) -> None:
     """
     Apply env overrides without forcing users to set every field.
     """
@@ -239,7 +241,3 @@ def _apply_env_overrides(config: ZotSearchConfig) -> None:
     debug_publication = os.getenv("ZOTERO_DEBUG_PUBLICATION_FILTER")
     if debug_publication:
         config.debug_publication_filter = debug_publication.lower() in ["1", "true", "yes"]
-
-    use_local_api = os.getenv("ZOTERO_USE_LOCAL_API")
-    if use_local_api is not None:
-        config.use_local_api = use_local_api.lower() == "true"

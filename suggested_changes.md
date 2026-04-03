@@ -7,9 +7,9 @@
 Suggested future modes:
 
 ```bash
-zotsearch --zotero "measurement invariance" --fulltext "bifactor" --attachment-scope all-pdfs
-zotsearch --zotero "measurement invariance" --fulltext "bifactor" --attachment-scope default
-zotsearch --zotero "measurement invariance" --fulltext "bifactor" --attachment-scope first-pdf
+zotgrep --zotero "measurement invariance" --fulltext "bifactor" --attachment-scope all-pdfs
+zotgrep --zotero "measurement invariance" --fulltext "bifactor" --attachment-scope default
+zotgrep --zotero "measurement invariance" --fulltext "bifactor" --attachment-scope first-pdf
 ```
 
 Recommended behavior:
@@ -29,7 +29,7 @@ Implementation note:
 Suggested future mode:
 
 ```bash
-zotsearch --zotero "measurement invariance" --fulltext "bifactor" --fulltext-source zotero-index
+zotgrep --zotero "measurement invariance" --fulltext "bifactor" --fulltext-source zotero-index
 ```
 
 Recommended behavior:
@@ -44,7 +44,7 @@ Recommended behavior:
 Suggested CLI shape:
 
 ```bash
-zotsearch --zotero "measurement invariance longitudinal SEM" --metadata-only --item-type journalArticle
+zotgrep --zotero "measurement invariance longitudinal SEM" --metadata-only --item-type journalArticle
 ```
 
 Recommended behavior:

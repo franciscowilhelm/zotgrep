@@ -1,12 +1,12 @@
-# ZotSearch Modularization Plan
+# ZotGrep Modularization Plan
 
 ## Executive Summary
 
-This document outlines the plan to refactor the monolithic [`zotsearch.py`](zotsearch.py) script into a modular, maintainable architecture. The goal is to separate concerns into logical modules to make the codebase easier to maintain and extend with new features.
+This document outlines the plan that was used to refactor the former monolithic `zotgrep.py` script into a modular, maintainable architecture. The goal was to separate concerns into logical modules to make the codebase easier to maintain and extend with new features.
 
 ## Current State Analysis
 
-The current [`zotsearch.py`](zotsearch.py:1) is a monolithic script with 488 lines containing multiple responsibilities:
+The original `zotgrep.py` implementation was a monolithic script with 488 lines containing multiple responsibilities:
 
 1. **Configuration Management** (lines 24-34)
 2. **PDF Text Extraction** (lines 38-60)
@@ -187,10 +187,9 @@ graph TD
 ## File Structure After Modularization
 
 ```
-zotsearcher/
+project-root/
 ├── main.py                 # New entry point
-├── zotsearch.py           # Legacy script (preserved)
-├── zotsearch/             # Package directory
+├── zotgrep/             # Package directory
 │   ├── __init__.py       # Package initialization
 │   ├── config.py         # Configuration management
 │   ├── cli.py            # Command line interface
@@ -236,16 +235,16 @@ zotsearcher/
 ## Migration Strategy
 
 ### Backward Compatibility
-- Preserve original `zotsearch.py` as legacy script
-- New `main.py` provides identical CLI interface
+- Preserve the existing CLI behavior while moving the implementation into the package
+- New `main.py` provides the same top-level interface
 - All existing command-line arguments work unchanged
 - Same output formats and behavior
 
 ### Gradual Migration
-- Users can continue using `zotsearch.py` during transition
+- Users can continue using the packaged CLI during transition
 - New features will be added to modular version
 - Documentation will guide users to new entry point
-- Legacy script can be deprecated in future versions
+- Transitional entry points can be simplified in future versions
 
 ## Dependencies and Requirements
 
@@ -314,4 +313,4 @@ zotsearcher/
 4. Create initial package structure
 5. Start with configuration extraction
 
-This modularization will transform ZotSearch from a monolithic script into a professional, maintainable Python package while preserving all existing functionality and user experience.
+This modularization will transform ZotGrep from a monolithic script into a professional, maintainable Python package while preserving all existing functionality and user experience.

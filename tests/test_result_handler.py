@@ -2,7 +2,7 @@
 """
 Test suite for the result_handler module.
 
-This demonstrates the testing approach for the modular ZotSearch components.
+This demonstrates the testing approach for the modular ZotGrep components.
 """
 
 import unittest
@@ -66,7 +66,7 @@ def _install_dependency_stubs():
 
 _install_dependency_stubs()
 
-from zotsearch.result_handler import (
+from zotgrep.result_handler import (
     ResultHandler,
     generate_zotero_url,
     save_results_to_csv,
@@ -463,7 +463,7 @@ class TestResultHandler(unittest.TestCase):
                 self.assertNotIn('annotations:', yaml_frontmatter)
 
                 # Check for expected content
-                self.assertIn('# ZotSearch Results', content)
+                self.assertIn('# ZotGrep Results', content)
                 self.assertIn('**Results:** Found **2** annotations across **1** papers.', content)
                 self.assertIn('total_papers_found: 1', content)
                 self.assertIn('total_annotations_found: 2', content)
@@ -602,7 +602,7 @@ class TestResultHandler(unittest.TestCase):
             with open(tmp_filename, 'r', encoding='utf-8') as jsonfile:
                 content = jsonfile.read()
 
-            self.assertIn('"zotsearch_results_version": 1', content)
+            self.assertIn('"zotgrep_results_version": 1', content)
             self.assertIn('"search_mode": "metadata_only"', content)
             self.assertIn('"doi": "10.1000/json-test"', content)
             self.assertIn('"abstract": "A concise abstract."', content)
@@ -642,10 +642,10 @@ class TestResultHandler(unittest.TestCase):
                 result = self.handler._clean_context_for_markdown(input_text)
                 self.assertEqual(result, expected)
 
-    @patch('zotsearch.cli.ResultHandler')
-    @patch('zotsearch.cli.ZoteroSearchEngine')
-    @patch('zotsearch.cli.get_config')
-    @patch('zotsearch.cli.print_config_info')
+    @patch('zotgrep.cli.ResultHandler')
+    @patch('zotgrep.cli.ZoteroSearchEngine')
+    @patch('zotgrep.cli.get_config')
+    @patch('zotgrep.cli.print_config_info')
     def test_cli_markdown_output(self, mock_print_config, mock_get_config, mock_search_engine, mock_result_handler):
         """Test CLI with --md argument generates markdown output."""
         # Mock the config and search engine
@@ -680,8 +680,8 @@ class TestResultHandler(unittest.TestCase):
 
         # Simulate command line arguments
         test_args = ['--zotero', 'test zotero', '--fulltext', 'test term', '--md', 'test_output.md']
-        with patch.object(sys, 'argv', ['zotsearch'] + test_args):
-            from zotsearch.cli import main
+        with patch.object(sys, 'argv', ['zotgrep'] + test_args):
+            from zotgrep.cli import main
             exit_code = main()
 
         # Assert that main exited successfully
@@ -699,10 +699,10 @@ class TestResultHandler(unittest.TestCase):
         self.assertEqual(mock_result_handler_instance.save_results_to_markdown.call_args[1]['context_window'], 2)
         mock_result_handler_instance.save_results_to_json.assert_called_once()
 
-    @patch('zotsearch.cli.ResultHandler')
-    @patch('zotsearch.cli.ZoteroSearchEngine')
-    @patch('zotsearch.cli.get_config')
-    @patch('zotsearch.cli.print_config_info')
+    @patch('zotgrep.cli.ResultHandler')
+    @patch('zotgrep.cli.ZoteroSearchEngine')
+    @patch('zotgrep.cli.get_config')
+    @patch('zotgrep.cli.print_config_info')
     def test_cli_allows_metadata_only_search(self, mock_print_config, mock_get_config, mock_search_engine, mock_result_handler):
         """Test CLI allows metadata-only search when --fulltext is omitted."""
         mock_config_instance = mock_get_config.return_value
@@ -733,8 +733,8 @@ class TestResultHandler(unittest.TestCase):
         mock_result_handler_instance = mock_result_handler.return_value
 
         test_args = ['--zotero', 'test zotero', '--md', 'test_output.md']
-        with patch.object(sys, 'argv', ['zotsearch'] + test_args):
-            from zotsearch.cli import main
+        with patch.object(sys, 'argv', ['zotgrep'] + test_args):
+            from zotgrep.cli import main
             exit_code = main()
 
         self.assertEqual(exit_code, 0)
@@ -746,10 +746,10 @@ class TestResultHandler(unittest.TestCase):
         self.assertEqual(mock_result_handler_instance.save_results_to_markdown.call_args[1]['include_abstract'], True)
         mock_result_handler_instance.save_results_to_json.assert_called_once()
 
-    @patch('zotsearch.cli.ResultHandler')
-    @patch('zotsearch.cli.ZoteroSearchEngine')
-    @patch('zotsearch.cli.get_config')
-    @patch('zotsearch.cli.print_config_info')
+    @patch('zotgrep.cli.ResultHandler')
+    @patch('zotgrep.cli.ZoteroSearchEngine')
+    @patch('zotgrep.cli.get_config')
+    @patch('zotgrep.cli.print_config_info')
     def test_cli_includes_abstracts_by_default(self, mock_print_config, mock_get_config, mock_search_engine, mock_result_handler):
         """Test CLI includes abstracts by default in metadata-only mode."""
         mock_config_instance = mock_get_config.return_value
@@ -781,8 +781,8 @@ class TestResultHandler(unittest.TestCase):
         mock_result_handler_instance = mock_result_handler.return_value
 
         test_args = ['--zotero', 'test zotero', '--md', 'test_output.md']
-        with patch.object(sys, 'argv', ['zotsearch'] + test_args):
-            from zotsearch.cli import main
+        with patch.object(sys, 'argv', ['zotgrep'] + test_args):
+            from zotgrep.cli import main
             exit_code = main()
 
         self.assertEqual(exit_code, 0)
@@ -793,10 +793,10 @@ class TestResultHandler(unittest.TestCase):
         self.assertEqual(mock_result_handler_instance.save_results_to_markdown.call_args[1]['include_abstract'], True)
         mock_result_handler_instance.save_results_to_json.assert_called_once()
 
-    @patch('zotsearch.cli.ResultHandler')
-    @patch('zotsearch.cli.ZoteroSearchEngine')
-    @patch('zotsearch.cli.get_config')
-    @patch('zotsearch.cli.print_config_info')
+    @patch('zotgrep.cli.ResultHandler')
+    @patch('zotgrep.cli.ZoteroSearchEngine')
+    @patch('zotgrep.cli.get_config')
+    @patch('zotgrep.cli.print_config_info')
     def test_cli_no_abstract_flag_disables_abstracts(self, mock_print_config, mock_get_config, mock_search_engine, mock_result_handler):
         """Test CLI passes --no-abstract through to output handlers."""
         mock_config_instance = mock_get_config.return_value
@@ -827,8 +827,8 @@ class TestResultHandler(unittest.TestCase):
         mock_search_engine_instance.get_search_summary.return_value = "Found 1 reference."
 
         test_args = ['--zotero', 'test zotero', '--no-abstract', '--md', 'test_output.md']
-        with patch.object(sys, 'argv', ['zotsearch'] + test_args):
-            from zotsearch.cli import main
+        with patch.object(sys, 'argv', ['zotgrep'] + test_args):
+            from zotgrep.cli import main
             exit_code = main()
 
         self.assertEqual(exit_code, 0)
@@ -840,10 +840,10 @@ class TestResultHandler(unittest.TestCase):
             False
         )
 
-    @patch('zotsearch.cli.ResultHandler')
-    @patch('zotsearch.cli.ZoteroSearchEngine')
-    @patch('zotsearch.cli.get_config')
-    @patch('zotsearch.cli.print_config_info')
+    @patch('zotgrep.cli.ResultHandler')
+    @patch('zotgrep.cli.ZoteroSearchEngine')
+    @patch('zotgrep.cli.get_config')
+    @patch('zotgrep.cli.print_config_info')
     def test_cli_search_args_do_not_trigger_interactive_output_prompt(
         self, mock_print_config, mock_get_config, mock_search_engine, mock_result_handler
     ):
@@ -878,18 +878,18 @@ class TestResultHandler(unittest.TestCase):
         mock_result_handler_instance = mock_result_handler.return_value
 
         test_args = ['--zotero', 'test zotero']
-        with patch.object(sys, 'argv', ['zotsearch'] + test_args):
-            from zotsearch.cli import main
+        with patch.object(sys, 'argv', ['zotgrep'] + test_args):
+            from zotgrep.cli import main
             exit_code = main()
 
         self.assertEqual(exit_code, 0)
         mock_result_handler_instance.get_interactive_output_choice.assert_not_called()
         mock_result_handler_instance.save_results_to_json.assert_called_once()
 
-    @patch('zotsearch.cli.ResultHandler')
-    @patch('zotsearch.cli.ZoteroSearchEngine')
-    @patch('zotsearch.cli.get_config')
-    @patch('zotsearch.cli.print_config_info')
+    @patch('zotgrep.cli.ResultHandler')
+    @patch('zotgrep.cli.ZoteroSearchEngine')
+    @patch('zotgrep.cli.get_config')
+    @patch('zotgrep.cli.print_config_info')
     def test_cli_metadata_only_flag_is_explicit(self, mock_print_config, mock_get_config, mock_search_engine, mock_result_handler):
         """Explicit metadata-only mode should be passed through to the search engine."""
         mock_config_instance = mock_get_config.return_value
@@ -901,8 +901,8 @@ class TestResultHandler(unittest.TestCase):
         mock_search_engine_instance.search_zotero_and_full_text.return_value = []
 
         test_args = ['--zotero', 'test zotero', '--metadata-only', '--no-json']
-        with patch.object(sys, 'argv', ['zotsearch'] + test_args):
-            from zotsearch.cli import main
+        with patch.object(sys, 'argv', ['zotgrep'] + test_args):
+            from zotgrep.cli import main
             exit_code = main()
 
         self.assertEqual(exit_code, 0)

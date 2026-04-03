@@ -566,7 +566,7 @@ wheels = [
 ]
 
 [[package]]
-name = "zotsearch"
+name = "zotgrep"
 version = "2.1.0"
 source = { editable = "." }
 dependencies = [

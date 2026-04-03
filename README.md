@@ -1,8 +1,8 @@
-# ZotSearch - Enhanced Zotero Library and Full-Text PDF Search
+# ZotGrep - Enhanced Zotero Library and Full-Text PDF Search
 
-ZotSearch is a Python package that enables users to search their local Zotero library using the API and then search for full-text content within PDFs. It includes multiple output formats (CSV and Markdown) and Zotero URL integration for direct access to search results.
+ZotGrep is a Python package that enables users to search their local Zotero library using the API and then search for full-text content within PDFs. It includes multiple output formats (CSV and Markdown) and Zotero URL integration for direct access to search results.
 
-Credits: ZotSearch builds on [pyzotero](https://github.com/urschrei/pyzotero) by Stephan Hugel.
+Credits: ZotGrep builds on [pyzotero](https://github.com/urschrei/pyzotero) by Stephan Hugel.
 
 Disclaimer: The project was largely vibe-coded using Claude and ChatGPT.
 
@@ -34,7 +34,7 @@ source .venv/bin/activate
 uv pip install -e .
 ```
 
-This installs the project locally in editable mode and exposes the `zotsearch` shell command.
+This installs the project locally in editable mode and exposes the `zotgrep` shell command.
 
 If you want to install it as a uv-managed tool instead of inside a project virtual environment:
 
@@ -44,23 +44,22 @@ uv tool install .
 
 ### Configuration
 
-ZotSearch now supports a user config file for persistent defaults. The recommended path is:
+ZotGrep now supports a user config file for persistent defaults. The recommended path is:
 
 ```bash
-~/.config/zotsearch/config.json
+~/.config/zotgrep/config.json
 ```
 
 You can manage these settings either:
 
 - manually by creating that JSON file
 - via the web UI under `General Settings`
-- by pointing to another file with `--config PATH` or `ZOTSEARCH_CONFIG_PATH`
+- by pointing to another file with `--config PATH` or `ZOTGREP_CONFIG_PATH`
 
 Typical persistent settings include:
 
 ```json
 {
-  "use_local_api": true,
   "zotero_user_id": "0",
   "zotero_api_key": "local",
   "library_type": "user",
@@ -76,23 +75,23 @@ Environment variables still work and override config-file values at runtime. The
 
 ```bash
 export ZOTERO_BASE_ATTACHMENT_PATH='/path/to/your/zotero/attachments'
-export ZOTSEARCH_CONFIG_PATH='/path/to/custom/config.json'
+export ZOTGREP_CONFIG_PATH='/path/to/custom/config.json'
 ```
 
 ## Usage
 
 ### Basic Usage
 
-You can use ZotSearch via the `zotsearch` shell command or the module interface:
+You can use ZotGrep via the `zotgrep` shell command or the module interface:
 
 ```bash
-zotsearch
+zotgrep
 ```
 
 Equivalent module form:
 
 ```bash
-python -m zotsearch
+python -m zotgrep
 ```
 
 This will prompt you for:
@@ -113,10 +112,10 @@ Choose output format (1/2/3):
 You can now specify search terms directly via command line arguments for non-interactive use:
 
 ```bash
-zotsearch --zotero "career engagement"
-zotsearch --zotero "career engagement" --fulltext "barriers"
-zotsearch --zotero "career engagement" --metadata-only
-zotsearch --zotero "career engagement" --no-abstract
+zotgrep --zotero "career engagement"
+zotgrep --zotero "career engagement" --fulltext "barriers"
+zotgrep --zotero "career engagement" --metadata-only
+zotgrep --zotero "career engagement" --no-abstract
 ```
 - `--zotero` specifies the metadata search string (e.g., title, author, etc.).
 - `--fulltext` optionally specifies the full-text search terms (comma-separated).
@@ -128,12 +127,12 @@ This allows for scripting and automation without interactive prompts. All other 
 
 Example with output:
 ```bash
-zotsearch --zotero "AI ethics" --fulltext "privacy, fairness" --csv results.csv
+zotgrep --zotero "AI ethics" --fulltext "privacy, fairness" --csv results.csv
 ```
 
 Example with publication filter (list via comma-separated values):
 ```bash
-zotsearch --zotero "AI ethics" --fulltext "privacy, fairness" --publication "Nature, Science"
+zotgrep --zotero "AI ethics" --fulltext "privacy, fairness" --publication "Nature, Science"
 ```
 
 ### Web Interface
@@ -141,7 +140,7 @@ zotsearch --zotero "AI ethics" --fulltext "privacy, fairness" --publication "Nat
 Launch the local web interface with:
 
 ```bash
-zotsearch --web
+zotgrep --web
 ```
 
 Use the `General Settings` page to save defaults such as linked-file paths and API mode. The main search page then uses those saved defaults and keeps only per-search inputs in the form.
@@ -154,10 +153,10 @@ Save results to CSV format for data analysis and spreadsheet applications:
 
 ```bash
 # Save to specific CSV file
-zotsearch --csv results.csv
+zotgrep --csv results.csv
 
 # Save to CSV only (no console output)
-zotsearch --csv results.csv --csv-only
+zotgrep --csv results.csv --csv-only
 ```
 
 #### Markdown Export
@@ -165,20 +164,20 @@ Save results to Markdown format for research notes and documentation:
 
 ```bash
 # Save to specific Markdown file
-zotsearch --md results.md
-zotsearch --markdown results.md
+zotgrep --md results.md
+zotgrep --markdown results.md
 
 # Save to Markdown only (no console output)
-zotsearch --md results.md --md-only
-zotsearch --markdown results.md --markdown-only
+zotgrep --md results.md --md-only
+zotgrep --markdown results.md --markdown-only
 ```
 
 #### JSON Export
 Structured JSON output is saved by default unless `--no-json` is used. You can also specify a filename explicitly:
 
 ```bash
-zotsearch --zotero "career engagement" --json results.json
-zotsearch --zotero "career engagement" --no-json
+zotgrep --zotero "career engagement" --json results.json
+zotgrep --zotero "career engagement" --no-json
 ```
 
 #### Interactive Output Choice
@@ -227,7 +226,7 @@ This format is compatible with note-taking applications like Obsidian and suppor
 #### Example Markdown Structure:
 ```markdown
 ---
-zotsearch-results/v1:
+zotgrep-results/v1:
   search_details:
     zotero_query: bifactor
     full_text_query:
@@ -253,7 +252,7 @@ zotsearch-results/v1:
   # ... more papers ...
 ---
 
-# ZotSearch Results
+# ZotGrep Results
 
 ## Search Summary
 
@@ -296,32 +295,32 @@ zotsearch-results/v1:
 
 ### Example 1: Basic Search with Interactive Output Choice
 ```bash
-zotsearch
+zotgrep
 # Enter search terms when prompted
 # Choose output format from the interactive menu
 ```
 
 ### Example 2: Direct Search via Command Line (Non-Interactive)
 ```bash
-zotsearch --zotero "deep learning" --fulltext "convolution, neural network"
+zotgrep --zotero "deep learning" --fulltext "convolution, neural network"
 # Runs search directly with specified terms, no prompts
 ```
 
 ### Example 3: Direct CSV Export
 ```bash
-zotsearch --zotero "AI ethics" --fulltext "privacy, fairness" --csv my_research_results.csv
+zotgrep --zotero "AI ethics" --fulltext "privacy, fairness" --csv my_research_results.csv
 # Results saved to CSV for data analysis
 ```
 
 ### Example 4: Direct Markdown Export for Note-Taking
 ```bash
-zotsearch --zotero "literature review" --fulltext "systematic, meta-analysis" --md literature_review.md
+zotgrep --zotero "literature review" --fulltext "systematic, meta-analysis" --md literature_review.md
 # Results saved to Markdown for research notes
 ```
 
 ### Example 5: Silent Export (No Console Output)
 ```bash
-zotsearch --zotero "machine learning" --fulltext "algorithm, bias" --markdown research_notes.md --markdown-only
+zotgrep --zotero "machine learning" --fulltext "algorithm, bias" --markdown research_notes.md --markdown-only
 # Only creates the Markdown file, no console output
 ```
 
@@ -386,7 +385,7 @@ Results are organized by paper with YAML frontmatter and annotations sections, p
 - `--help`: Show help message
 
 ### Environment Variables
-- `ZOTSEARCH_CONFIG_PATH`: Use a custom user config file path
+- `ZOTGREP_CONFIG_PATH`: Use a custom user config file path
 - `ZOTERO_BASE_ATTACHMENT_PATH`: Base directory for linked-file attachments
 - `ZOTERO_PUBLICATION_TITLE_FILTER`: Filter results by publication title (comma-separated list). Example: `Nature, Science`
 
@@ -416,7 +415,7 @@ This will test:
 - Sample data processing
 
 **Deprecation Notice:**
-Running `python test_zotsearch.py` is deprecated. Please use the package-based test suite in the `tests/` directory as shown above.
+Running `python test_zotgrep.py` is deprecated. Please use the package-based test suite in the `tests/` directory as shown above.
 
 ## Use Cases
 

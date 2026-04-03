@@ -1,5 +1,5 @@
 """
-Result handling module for ZotSearch.
+Result handling module for ZotGrep.
 
 This module handles search result formatting, CSV export, console output,
 and Zotero URL generation.
@@ -356,7 +356,7 @@ class ResultHandler:
             paper_list.append(paper_copy)
 
         return {
-            'zotsearch_results_version': 1,
+            'zotgrep_results_version': 1,
             'search_details': {
                 'zotero_query': zotero_query or "",
                 'full_text_query': full_text_query or [],
@@ -451,7 +451,7 @@ class ResultHandler:
             # Compose compact YAML frontmatter to avoid duplicating the full reference list
             import yaml
             yaml_dict = {
-                'zotsearch-results/v1': None,
+                'zotgrep-results/v1': None,
                 'search_details': search_details,
                 'summary': summary,
             }
@@ -471,7 +471,7 @@ class ResultHandler:
                 allow_unicode=True
             )
             # Remove the 'null' after the version key for aesthetic
-            yaml_frontmatter = yaml_frontmatter.replace("'zotsearch-results/v1': ''", "# zotsearch-results/v1")
+            yaml_frontmatter = yaml_frontmatter.replace("'zotgrep-results/v1': ''", "# zotgrep-results/v1")
 
             with open(filename, 'w', encoding='utf-8') as mdfile:
                 # Write YAML frontmatter
@@ -480,7 +480,7 @@ class ResultHandler:
                 mdfile.write('---\n\n')
 
                 # Markdown body
-                mdfile.write("# ZotSearch Results\n\n")
+                mdfile.write("# ZotGrep Results\n\n")
                 mdfile.write("## Search Summary\n\n")
                 mdfile.write(f"- **Search Date:** {search_timestamp}\n")
                 mdfile.write(f"- **Zotero Library Query:** `{zotero_query or ''}`\n")

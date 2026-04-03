@@ -1,5 +1,5 @@
 """
-Text analysis module for ZotSearch.
+Text analysis module for ZotGrep.
 
 This module handles text processing, search term matching, context extraction,
 and text highlighting functionality.

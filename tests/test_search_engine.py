@@ -53,17 +53,17 @@ def _install_dependency_stubs():
 
 _install_dependency_stubs()
 
-from zotsearch.config import ZotSearchConfig
+from zotgrep.config import ZotGrepConfig
 
 
 class TestZoteroSearchEngine(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.search_engine_module = importlib.import_module("zotsearch.search_engine")
+        cls.search_engine_module = importlib.import_module("zotgrep.search_engine")
 
     def test_stored_pdf_uses_file_download_for_imported_url(self):
         engine = self.search_engine_module.ZoteroSearchEngine(
-            ZotSearchConfig(base_attachment_path="")
+            ZotGrepConfig(base_attachment_path="")
         )
         engine.zot_conn = Mock()
         engine.zot_conn.file.return_value = b"%PDF-1.7"
@@ -85,7 +85,7 @@ class TestZoteroSearchEngine(unittest.TestCase):
 
     def test_linked_pdf_without_base_path_is_skipped(self):
         engine = self.search_engine_module.ZoteroSearchEngine(
-            ZotSearchConfig(base_attachment_path="")
+            ZotGrepConfig(base_attachment_path="")
         )
         engine.pdf_processor.process_linked_pdf = Mock()
 

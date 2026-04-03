@@ -3,6 +3,7 @@ import sys
 import tempfile
 import types
 import unittest
+import json
 from unittest.mock import patch
 
 
@@ -55,27 +56,27 @@ def _install_dependency_stubs():
 
 _install_dependency_stubs()
 
-from zotsearch.config import ZotSearchConfig
-from zotsearch.config import get_config
-from zotsearch.config import get_user_config_path
-from zotsearch.config import load_config_from_env
-from zotsearch.config import load_config_from_file
-from zotsearch.config import save_config_to_file
+from zotgrep.config import ZotGrepConfig
+from zotgrep.config import get_config
+from zotgrep.config import get_user_config_path
+from zotgrep.config import load_config_from_env
+from zotgrep.config import load_config_from_file
+from zotgrep.config import save_config_to_file
 
 
-class TestZotSearchConfig(unittest.TestCase):
+class TestZotGrepConfig(unittest.TestCase):
     def test_base_attachment_path_is_optional(self):
-        config = ZotSearchConfig(base_attachment_path="")
+        config = ZotGrepConfig(base_attachment_path="")
         self.assertEqual(config.base_attachment_path, "")
 
     def test_existing_base_attachment_path_is_valid(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            config = ZotSearchConfig(base_attachment_path=temp_dir)
+            config = ZotGrepConfig(base_attachment_path=temp_dir)
             self.assertEqual(config.base_attachment_path, temp_dir)
 
     def test_nonexistent_base_attachment_path_is_invalid(self):
         with self.assertRaisesRegex(ValueError, "BASE_ATTACHMENT_PATH does not exist"):
-            ZotSearchConfig(base_attachment_path="/definitely/not/a/real/path")
+            ZotGrepConfig(base_attachment_path="/definitely/not/a/real/path")
 
     def test_load_config_from_env_leaves_base_path_empty_when_env_var_missing(self):
         original = os.environ.pop("ZOTERO_BASE_ATTACHMENT_PATH", None)
@@ -93,7 +94,7 @@ class TestZotSearchConfig(unittest.TestCase):
             attachments_dir = os.path.join(temp_dir, "attachments")
             os.mkdir(attachments_dir)
 
-            config = ZotSearchConfig(
+            config = ZotGrepConfig(
                 base_attachment_path=attachments_dir,
                 max_results_stage1=42,
                 context_sentence_window=5,
@@ -113,7 +114,7 @@ class TestZotSearchConfig(unittest.TestCase):
             os.mkdir(attachments_dir)
 
             save_config_to_file(
-                ZotSearchConfig(
+                ZotGrepConfig(
                     base_attachment_path=attachments_dir,
                     max_results_stage1=42,
                 ),
@@ -123,7 +124,7 @@ class TestZotSearchConfig(unittest.TestCase):
             with patch.dict(
                 os.environ,
                 {
-                    "ZOTSEARCH_CONFIG_PATH": config_path,
+                    "ZOTGREP_CONFIG_PATH": config_path,
                     "ZOTERO_MAX_RESULTS": "77",
                 },
                 clear=False,
@@ -134,3 +135,26 @@ class TestZotSearchConfig(unittest.TestCase):
         self.assertEqual(config.base_attachment_path, attachments_dir)
         self.assertEqual(config.max_results_stage1, 77)
         self.assertEqual(resolved_path, os.path.abspath(config_path))
+
+    def test_non_local_api_flags_from_file_are_ignored(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = os.path.join(temp_dir, "config.json")
+            with open(config_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "use_local_api": False,
+                        "zotero_user_id": "12345",
+                        "zotero_api_key": "secret",
+                    },
+                    handle,
+                )
+
+            loaded = load_config_from_file(config_path=config_path)
+
+        self.assertTrue(loaded.use_local_api)
+
+    def test_non_local_api_flags_from_env_are_ignored(self):
+        with patch.dict(os.environ, {"ZOTERO_USE_LOCAL_API": "false"}, clear=False):
+            config = load_config_from_env()
+
+        self.assertTrue(config.use_local_api)

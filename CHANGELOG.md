@@ -5,7 +5,7 @@
 ### Added
 
 - A dedicated Flask-based web interface with a separate `General Settings` page, persistent user settings, and export actions for CSV, JSON, and Markdown.
-- User config file support via `~/.config/zotsearch/config.json`, plus `--config` and `ZOTSEARCH_CONFIG_PATH` for custom config locations.
+- User config file support via `~/.config/zotgrep/config.json`, plus `--config` and `ZOTGREP_CONFIG_PATH` for custom config locations.
 - Focused regression tests for config behavior, search-engine attachment handling, web settings persistence, and richer Markdown output.
 - Deferred feature notes for future attachment-selection modes and Zotero `fulltext_item()` support in `suggested_changes.md`.
 

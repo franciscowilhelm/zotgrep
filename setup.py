@@ -1,9 +1,9 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="zotsearch",
+    name="zotgrep",
     version="2.1.0",
-    author="ZotSearch Contributors",
+    author="ZotGrep Contributors",
     description="Enhanced Zotero Library and Full-Text PDF Search",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
@@ -16,7 +16,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'zotsearch=zotsearch.cli:main',
+            'zotgrep=zotgrep.cli:main',
         ],
     },
     python_requires=">=3.11",

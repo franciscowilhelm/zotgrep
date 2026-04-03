@@ -1,7 +1,7 @@
 Suggest a new structure for the .md output that is useful for machine and humans readers.
 Things I have considered (please expand)
 
-Of course. This is an excellent problem to solve. A well-structured output file is key to making a tool like ZotSearch genuinely useful for research workflows. Your considerations are spot on. Multiple YAML frontmatters are indeed a problem for most parsers, and documenting inputs and providing a summary are crucial for reproducibility and usability.
+Of course. This is an excellent problem to solve. A well-structured output file is key to making a tool like ZotGrep genuinely useful for research workflows. Your considerations are spot on. Multiple YAML frontmatters are indeed a problem for most parsers, and documenting inputs and providing a summary are crucial for reproducibility and usability.
 
 Let's design a new Markdown output structure that addresses these points, balancing human readability with machine-parsable data.
 
@@ -16,7 +16,7 @@ Here is a complete example of the new output format. I will break down the ratio
 
 ```markdown
 ---
-# zotsearch-results/v1  (A version for the schema, allows future-proofing)
+# zotgrep-results/v1  (A version for the schema, allows future-proofing)
 search_details:
   zotero_query: "bifactor models"
   full_text_query: ["invariance", "longitudinal"]
@@ -51,7 +51,7 @@ papers:
     zotero_select_url: "zotero://select/library/items/EM4A3LNZ"
 ---
 
-# ZotSearch Results
+# ZotGrep Results
 
 ## Search Summary
 
@@ -107,7 +107,7 @@ papers:
 
 This is the most important change. It solves the primary issue of multiple frontmatters and creates a single, machine-readable source of truth for the entire search.
 
--   **`zotsearch-results/v1`**: A schema key. This is a best practice for data files. It allows you to version your output format. If you ever change the structure in the future, a program can check this key to know how to parse the file.
+-   **`zotgrep-results/v1`**: A schema key. This is a best practice for data files. It allows you to version your output format. If you ever change the structure in the future, a program can check this key to know how to parse the file.
 -   **`search_details`**: An object that explicitly documents the inputs to the search, addressing one of your key requirements for reproducibility.
     -   `zotero_query`: The exact string used for the metadata search.
     -   `full_text_query`: A list of strings, which is a more structured way to store the comma-separated terms.
@@ -126,7 +126,7 @@ This is the most important change. It solves the primary issue of multiple front
 
 This part of the file is generated *from* the data in the YAML frontmatter. It's designed for a researcher to read and use directly.
 
--   **`# ZotSearch Results`**: A clear top-level heading.
+-   **`# ZotGrep Results`**: A clear top-level heading.
 -   **`## Search Summary`**: This section provides an immediate, human-readable overview. It directly mirrors the data in `search_details` and `summary` from the YAML block, making it easy to see the search context at a glance.
 -   **`### Reference List`**: This directly addresses your desire for a summary reference list.
     -   It can be formatted in a standard citation style (like APA, as shown). This is extremely useful for quickly copying and pasting into a document or getting an overview of the literature found.

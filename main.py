@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-ZotSearch - Enhanced Zotero Library and Full-Text PDF Search
+ZotGrep - Enhanced Zotero Library and Full-Text PDF Search
 
-Main entry point for the modular ZotSearch application.
-This script provides the same functionality as the original zotsearch.py
-but with a clean, modular architecture.
+Main entry point for the modular ZotGrep application.
+This script provides the package CLI in a simple top-level entry point.
 
 Usage:
     python main.py
@@ -15,10 +14,10 @@ Usage:
 import sys
 import os
 
-# Add the current directory to Python path to import zotsearch package
+# Add the current directory to Python path to import zotgrep package
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from zotsearch.cli import main
+from zotgrep.cli import main
 
 if __name__ == "__main__":
     sys.exit(main())

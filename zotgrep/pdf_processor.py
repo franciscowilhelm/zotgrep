@@ -1,5 +1,5 @@
 """
-PDF processing module for ZotSearch.
+PDF processing module for ZotGrep.
 
 This module handles PDF text extraction, file handling, and text cleaning.
 """

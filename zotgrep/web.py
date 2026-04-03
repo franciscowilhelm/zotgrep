@@ -1,9 +1,9 @@
 """
-Web interface module for ZotSearch.
+Web interface module for ZotGrep.
 
 Provides a localhost Flask web GUI for searching Zotero libraries and editing
 persistent user settings.
-Launch with: zotsearch --web
+Launch with: zotgrep --web
 """
 
 import re
@@ -14,7 +14,7 @@ from typing import Any, Dict
 from flask import Flask, redirect, render_template_string, request, send_file, url_for
 
 from .config import (
-    ZotSearchConfig,
+    ZotGrepConfig,
     get_config,
     get_user_config_path,
     load_config_from_file,
@@ -41,7 +41,7 @@ def _parse_int(value: str, default: int) -> int:
         return default
 
 
-def _build_search_form(config: ZotSearchConfig) -> Dict[str, Any]:
+def _build_search_form(config: ZotGrepConfig) -> Dict[str, Any]:
     return {
         "zotero_query": "",
         "fulltext_terms": "",
@@ -53,9 +53,8 @@ def _build_search_form(config: ZotSearchConfig) -> Dict[str, Any]:
     }
 
 
-def _build_settings_form(config: ZotSearchConfig) -> Dict[str, Any]:
+def _build_settings_form(config: ZotGrepConfig) -> Dict[str, Any]:
     return {
-        "use_local_api": config.use_local_api,
         "zotero_user_id": config.zotero_user_id,
         "zotero_api_key": config.zotero_api_key,
         "library_type": config.library_type,
@@ -134,7 +133,7 @@ def _render_page(content_template: str, **context: Any) -> str:
 
 
 def _render_search_page(
-    config: ZotSearchConfig,
+    config: ZotGrepConfig,
     form: Dict[str, Any],
     results: Any = None,
     error: str | None = None,
@@ -177,7 +176,7 @@ def _render_settings_page(
 def create_app() -> Flask:
     """Create and configure the Flask application."""
     app = Flask(__name__)
-    app.secret_key = "zotsearch-local"
+    app.secret_key = "zotgrep-local"
     app.jinja_env.filters["highlight"] = _highlight_filter
 
     @app.route("/")
@@ -297,7 +296,6 @@ def create_app() -> Flask:
             return _render_settings_page(_build_settings_form(load_config_from_file()))
 
         form = {
-            "use_local_api": "use_local_api" in request.form,
             "zotero_user_id": request.form.get("zotero_user_id", "").strip(),
             "zotero_api_key": request.form.get("zotero_api_key", "").strip(),
             "library_type": request.form.get("library_type", "user").strip() or "user",
@@ -307,7 +305,7 @@ def create_app() -> Flask:
         }
 
         try:
-            config = ZotSearchConfig(
+            config = ZotGrepConfig(
                 zotero_user_id=form["zotero_user_id"] or "0",
                 zotero_api_key=form["zotero_api_key"] or "local",
                 library_type=form["library_type"],
@@ -316,7 +314,7 @@ def create_app() -> Flask:
                 context_sentence_window=_parse_int(form["context_sentence_window"], 2),
                 publication_title_filter=None,
                 debug_publication_filter=False,
-                use_local_api=form["use_local_api"],
+                use_local_api=True,
             )
             saved_path = save_config_to_file(config)
         except ValueError as exc:
@@ -349,7 +347,7 @@ def create_app() -> Flask:
             return send_file(
                 path,
                 as_attachment=True,
-                download_name=f"zotsearch_results_{timestamp}.csv",
+                download_name=f"zotgrep_results_{timestamp}.csv",
                 mimetype="text/csv",
             )
         if fmt == "json":
@@ -365,7 +363,7 @@ def create_app() -> Flask:
             return send_file(
                 path,
                 as_attachment=True,
-                download_name=f"zotsearch_results_{timestamp}.json",
+                download_name=f"zotgrep_results_{timestamp}.json",
                 mimetype="application/json",
             )
         if fmt == "md":
@@ -381,7 +379,7 @@ def create_app() -> Flask:
             return send_file(
                 path,
                 as_attachment=True,
-                download_name=f"zotsearch_results_{timestamp}.md",
+                download_name=f"zotgrep_results_{timestamp}.md",
                 mimetype="text/markdown",
             )
         return redirect(url_for("index"))
@@ -394,7 +392,7 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ZotSearch · {{ page_title }}</title>
+<title>ZotGrep · {{ page_title }}</title>
 <style>
   [data-theme="latte"] {
     --bg: #eff1f5;
@@ -867,7 +865,7 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
 <header>
   <div class="container">
     <div class="header-left">
-      <h1>ZotSearch</h1>
+      <h1>ZotGrep</h1>
       <span class="version">v2.1.0</span>
     </div>
     <div class="header-right">
@@ -895,13 +893,13 @@ __PAGE_CONTENT__
 
 <script>
 (function() {
-  var saved = localStorage.getItem('zotsearch-theme') || 'latte';
+  var saved = localStorage.getItem('zotgrep-theme') || 'latte';
   document.documentElement.setAttribute('data-theme', saved);
 
   var buttons = document.querySelectorAll('.theme-switcher button');
   function activate(theme) {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('zotsearch-theme', theme);
+    localStorage.setItem('zotgrep-theme', theme);
     buttons.forEach(function(button) {
       button.classList.toggle('active', button.getAttribute('data-set-theme') === theme);
     });
@@ -1136,19 +1134,11 @@ SETTINGS_CONTENT_TEMPLATE = r"""
       <span class="label">Linked Files</span>
       <span class="value">{{ form.get('base_attachment_path') or 'Not configured' }}</span>
     </div>
-    <div class="mini-card">
-      <span class="label">API Mode</span>
-      <span class="value">{{ 'Local API' if form.get('use_local_api') else 'Remote API' }}</span>
-    </div>
   </div>
 
   <form action="/settings" method="POST">
-    <div class="form-group checkbox-group">
-      <label>
-        <input type="checkbox" name="use_local_api"
-               {{ 'checked' if form.get('use_local_api', True) else '' }}>
-        Use local Zotero API
-      </label>
+    <div class="message success" style="margin-bottom: 1.5rem;">
+      ZotGrep always uses Zotero's local API because PDF full-text search depends on the local Zotero client.
     </div>
 
     <div class="form-row-2">
@@ -1156,7 +1146,7 @@ SETTINGS_CONTENT_TEMPLATE = r"""
         <label for="zotero_user_id">Zotero User ID</label>
         <input type="text" id="zotero_user_id" name="zotero_user_id"
                value="{{ form.get('zotero_user_id', '0') }}">
-        <small>Leave as <code>0</code> for local API usage.</small>
+        <small>Leave as <code>0</code> unless you have a specific local-library setup that requires a different value.</small>
       </div>
       <div class="form-group">
         <label for="library_type">Library Type</label>
@@ -1171,7 +1161,7 @@ SETTINGS_CONTENT_TEMPLATE = r"""
       <label for="zotero_api_key">Zotero API Key</label>
       <input type="password" id="zotero_api_key" name="zotero_api_key"
              value="{{ form.get('zotero_api_key', 'local') }}">
-      <small>Ignored for local API mode, required for remote API mode.</small>
+      <small>For the local Zotero API this should normally remain <code>local</code>.</small>
     </div>
 
     <div class="form-group">

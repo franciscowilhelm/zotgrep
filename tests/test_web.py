@@ -57,7 +57,7 @@ def _install_dependency_stubs():
 _install_dependency_stubs()
 
 try:
-    from zotsearch.web import create_app
+    from zotgrep.web import create_app
 except ModuleNotFoundError as exc:
     if exc.name == "flask":
         create_app = None
@@ -75,7 +75,7 @@ class TestWebSettings(unittest.TestCase):
 
             with patch.dict(
                 os.environ,
-                {"ZOTSEARCH_CONFIG_PATH": config_path},
+                {"ZOTGREP_CONFIG_PATH": config_path},
                 clear=False,
             ):
                 app = create_app()
@@ -84,7 +84,6 @@ class TestWebSettings(unittest.TestCase):
                 response = client.post(
                     "/settings",
                     data={
-                        "use_local_api": "on",
                         "zotero_user_id": "0",
                         "zotero_api_key": "local",
                         "library_type": "user",
@@ -103,3 +102,15 @@ class TestWebSettings(unittest.TestCase):
         self.assertEqual(saved["base_attachment_path"], attachments_dir)
         self.assertEqual(saved["max_results_stage1"], 55)
         self.assertEqual(saved["context_sentence_window"], 4)
+        self.assertNotIn("use_local_api", saved)
+
+    def test_settings_page_does_not_expose_local_api_toggle(self):
+        app = create_app()
+        client = app.test_client()
+
+        response = client.get("/settings")
+
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertNotIn('name="use_local_api"', html)
+        self.assertIn("always uses Zotero&#39;s local API", html)
