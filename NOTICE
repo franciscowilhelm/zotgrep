@@ -1,0 +1,37 @@
+ZotGrep includes or depends on the following third-party software:
+
+Flask
+  License: BSD-3-Clause
+  Copyright: Pallets
+  Source: https://github.com/pallets/flask
+  License text: https://github.com/pallets/flask/blob/main/LICENSE.txt
+
+pyzotero
+  License: Blue Oak Model License 1.0.0
+  Copyright: pyzotero contributors
+  Source: https://github.com/urschrei/pyzotero
+  License text: https://blueoakcouncil.org/license/1.0.0
+
+pypdfium2
+  License: BSD-3-Clause or Apache-2.0
+  Copyright: pypdfium2-team
+  Source: https://github.com/pypdfium2-team/pypdfium2
+  License text: https://github.com/pypdfium2-team/pypdfium2/tree/main/LICENSES
+
+PDFium
+  License: Apache-2.0
+  Copyright: PDFium authors
+  Source: https://pdfium.googlesource.com/pdfium/
+  License text: https://pdfium.googlesource.com/pdfium/+/refs/heads/main/LICENSE
+
+NLTK
+  License: Apache License 2.0
+  Copyright: NLTK Project
+  Source: https://github.com/nltk/nltk
+  License text: https://github.com/nltk/nltk/blob/develop/LICENSE.txt
+
+PyYAML
+  License: MIT
+  Copyright: Kirill Simonov
+  Source: https://github.com/yaml/pyyaml
+  License text: https://github.com/yaml/pyyaml/blob/main/LICENSE

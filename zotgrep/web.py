@@ -1169,7 +1169,7 @@ SETTINGS_CONTENT_TEMPLATE = r"""
       <input type="text" id="base_attachment_path" name="base_attachment_path"
              value="{{ form.get('base_attachment_path', '') }}"
              placeholder="Optional; only for linked files">
-      <small>Leave empty for Zotero-stored files. Set this only if your PDFs live outside Zotero and are linked attachments.</small>
+      <small>Can be left empty if you exclusively use Zotero-stored files. Needs to be set if your PDFs are linked attachments (managed, for instance, via ZotMoov).</small>
     </div>
 
     <div class="form-row-2">

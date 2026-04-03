@@ -154,8 +154,8 @@ Examples:
         parser.add_argument(
             '--port',
             type=int,
-            default=5555,
-            help='Port for web interface (default: 5555)'
+            default=23120,
+            help='Port for web interface (default: 23120)'
         )
 
         parser.add_argument(

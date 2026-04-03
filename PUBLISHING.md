@@ -10,15 +10,11 @@
 
 ### Add a LICENSE file
 
-You declare MIT in `setup.py` and `pyproject.toml`, but there is **no LICENSE file in the repo**. PyPI and most license scanners expect one. Create `LICENSE` in the repo root with the full MIT text and your name/year.
+The repo now uses **GPLv3**. Keep the `LICENSE` file and `pyproject.toml` aligned so PyPI and license scanners detect the same license metadata everywhere.
 
-### Sync setup.py and pyproject.toml
+### Use `pyproject.toml` as the single source of truth
 
-`setup.py` is only needed for legacy `pip install -e .` support. The authoritative config is `pyproject.toml`. Make sure both declare the same version, deps, and entry points. Consider dropping `setup.py` entirely -- modern `pip` and `uv` only need `pyproject.toml`.
-
-### Add flask to setup.py install_requires
-
-If keeping `setup.py`, add `"flask>=3.0"` to `install_requires` to match `pyproject.toml`.
+Modern `pip` and `uv` use `pyproject.toml`. Keep version, dependencies, scripts, and license metadata there and avoid reintroducing duplicate packaging metadata elsewhere.
 
 ### Check the package name
 
@@ -66,7 +62,7 @@ zotgrep --web
 
 ## 6. Updating
 
-1. Bump version in `pyproject.toml` (and `setup.py` / `__init__.py` if present)
+1. Bump version in `pyproject.toml`
 2. `uv build`
 3. `uv publish --token pypi-YOUR_TOKEN`
 
@@ -98,17 +94,17 @@ Store your PyPI token as a GitHub Actions secret named `PYPI_TOKEN`.
 
 ## Your license
 
-ZotGrep declares **MIT** in `setup.py` classifiers and `pyproject.toml`, but **no `LICENSE` file exists in the repository**. You must add one before publishing -- PyPI will accept the upload without it, but:
+ZotGrep is licensed under **GPLv3**. Keep the `LICENSE` file in the repository and publish with matching metadata in `pyproject.toml`.
 
-- The MIT license requires the full text to be included with the software
-- Users and license scanners (FOSSA, Snyk, GitHub's license detection) won't recognize your project as MIT without the file
-- Some package managers and enterprise policies reject packages with no detectable license
+- The GPL requires the license text to be provided with the software
+- Users and license scanners (FOSSA, Snyk, GitHub's license detection) rely on the `LICENSE` file and package metadata being consistent
+- Some package managers and enterprise policies reject packages with missing or conflicting license metadata
 
-Create a `LICENSE` file in the repo root with the standard MIT text, your name, and the year.
+If you change the license in the future, update the file and the package metadata together.
 
 ## Dependency licenses
 
-All direct dependencies use permissive licenses. No GPL/copyleft concerns.
+There is no obvious blocker to shipping ZotGrep itself under **GPLv3**. The main caution is that Apache-2.0 dependencies are compatible with GPLv3, but not GPLv2-only, so avoid downgrading this project to GPLv2-only without a fresh review.
 
 | Package | License | Attribution required? |
 |---|---|---|
@@ -121,13 +117,13 @@ All direct dependencies use permissive licenses. No GPL/copyleft concerns.
 
 ## What you need to do
 
-### Minimum (required for MIT compliance)
+### Minimum (required for GPLv3 compliance)
 
-1. **Add a `LICENSE` file** with the MIT license text to the repo root.
+1. **Keep the `LICENSE` file** with the full GPLv3 text in the repo root.
 
 ### Recommended (good practice for PyPI packages)
 
-2. **Add a `THIRD_PARTY_LICENSES` or `NOTICE` file** listing each dependency, its license, and a link. This satisfies the attribution clauses of BSD-3, Apache-2.0, and Blue Oak. Example format:
+2. **Keep the `NOTICE` file** listing each dependency, its license, and a link. This satisfies the attribution clauses of BSD-3, Apache-2.0, and Blue Oak.
 
 ```
 This project uses the following third-party packages:
@@ -155,7 +151,7 @@ PyYAML - MIT
 
 ### Not required but nice
 
-3. **Add `license = {file = "LICENSE"}` to `pyproject.toml`** under `[project]` so PyPI displays the license text on the package page.
+3. **Keep the SPDX license expression and `license-files` in `pyproject.toml`** so PyPI displays the license cleanly and ships the GPL text with the package.
 
 ## How to audit going forward
 
@@ -170,7 +166,8 @@ uvx pip-licenses --from=mixed --format=table
 ```
 
 Watch out for:
-- **GPL / AGPL** -- copyleft, would require you to release under GPL too
+- **Apache-2.0 plus GPLv2-only** -- incompatible; GPLv3 is the safer choice here
+- **GPL / AGPL** -- copyleft, would require you to release compatible derivative work under GPL/AGPL terms
 - **LGPL** -- copyleft for modifications to the library itself, usually fine for Python imports but worth understanding
 - **No license / custom license** -- avoid or get legal advice
 - **Apache-2.0 patent clause** -- grants patent rights, generally favorable to you as a user

@@ -42,47 +42,27 @@ If you want to install it as a uv-managed tool instead of inside a project virtu
 uv tool install .
 ```
 
-### Configuration
-
-ZotGrep now supports a user config file for persistent defaults. The recommended path is:
-
-```bash
-~/.config/zotgrep/config.json
-```
-
-You can manage these settings either:
-
-- manually by creating that JSON file
-- via the web UI under `General Settings`
-- by pointing to another file with `--config PATH` or `ZOTGREP_CONFIG_PATH`
-
-Typical persistent settings include:
-
-```json
-{
-  "zotero_user_id": "0",
-  "zotero_api_key": "local",
-  "library_type": "user",
-  "base_attachment_path": "/path/to/your/linked/pdfs",
-  "max_results_stage1": 100,
-  "context_sentence_window": 2
-}
-```
-
-If you use only Zotero-stored files, leave `base_attachment_path` empty.
-
-Environment variables still work and override config-file values at runtime. The most relevant ones are:
-
-```bash
-export ZOTERO_BASE_ATTACHMENT_PATH='/path/to/your/zotero/attachments'
-export ZOTGREP_CONFIG_PATH='/path/to/custom/config.json'
-```
-
 ## Usage
 
-### Basic Usage
+### Web Interface
 
-You can use ZotGrep via the `zotgrep` shell command or the module interface:
+Launch the local web interface with:
+
+```bash
+zotgrep --web
+```
+
+By default the web UI runs on `http://127.0.0.1:23120`. You can override that with `--port`, for example:
+
+```bash
+zotgrep --web --port 23121
+```
+
+ZotGrep supports a user config file for persistent defaults. You can manage the most important settings via the web UI under `General Settings`. Use that page to save defaults such as linked-file paths, result limits, and context-window size. The main search page then uses those saved defaults and keeps only per-search inputs in the form. See `Advanced` for configuring settings via a JSON file.
+
+### Interactive Search via Command Line Interface
+
+You can use ZotGrep via the `zotgrep` shell command or the module interface, which provides an interactive shell:
 
 ```bash
 zotgrep
@@ -109,7 +89,8 @@ Choose output format (1/2/3):
 ```
 
 ### Direct Search via Command Line
-You can now specify search terms directly via command line arguments for non-interactive use:
+
+You can specify search terms directly via command line arguments for non-interactive use:
 
 ```bash
 zotgrep --zotero "career engagement"
@@ -134,17 +115,6 @@ Example with publication filter (list via comma-separated values):
 ```bash
 zotgrep --zotero "AI ethics" --fulltext "privacy, fairness" --publication "Nature, Science"
 ```
-
-### Web Interface
-
-Launch the local web interface with:
-
-```bash
-zotgrep --web
-```
-
-Use the `General Settings` page to save defaults such as linked-file paths and API mode. The main search page then uses those saved defaults and keeps only per-search inputs in the form.
-
 
 ### Output Format Options
 
@@ -181,6 +151,7 @@ zotgrep --zotero "career engagement" --no-json
 ```
 
 #### Interactive Output Choice
+
 When no output format is specified, the script offers an interactive menu to choose between CSV, Markdown, or no file output.
 
 ## Output Formats
@@ -207,18 +178,27 @@ The CSV file includes the following columns for structured data analysis:
 | `zotero_pdf_url` | URL to open specific PDF page in Zotero |
 | `search_timestamp` | When the search was performed |
 
+Notes:
+- Metadata-only runs include only reference-level columns.
+- Full-text columns such as `pdf_filename`, `page_number`, `search_term_found`, `context`, and `zotero_pdf_url` are included only when full-text hits exist.
+- The `abstract` column is omitted when `--no-abstract` is used.
+- CSV uses plain `context`; the Markdown-only highlighted variant is not written to CSV.
+
 ### Markdown Output Format
 
 The Markdown output is designed for research note-taking and literature review workflows, and is structured as follows:
 
-- **YAML Frontmatter Block**: At the top, a YAML block contains search metadata, a summary, and a list of all papers found (with title, authors, year, citekey, and Zotero links).
+- **YAML Frontmatter Block**: At the top, a compact YAML block stores the format version, `search_details`, and a `summary`.
 - **Search Summary and Reference List**: A summary of the search and a numbered reference list for all papers.
 - **Abstracts Section**: By default, a separate abstracts section appears after the reference list unless `--no-abstract` is supplied.
-- **Detailed Paper Sections**: For each paper:
+- **Detailed Findings Section**:
+  - In full-text mode, each paper includes metadata, a per-term occurrence summary, and numbered annotation excerpts with Zotero PDF links.
+  - In metadata-only mode, the file still includes the reference list and abstracts, but the detailed findings section states that no annotation-level findings were generated.
+- **Detailed Paper Sections in Full-Text Mode**: For each paper:
   - The paper title as a heading.
-  - Metadata bullets: authors, year, citekey, and a direct Zotero link.
-  - An "Annotations" subheading.
-  - Each annotation as a blockquote, followed by a page reference (with a Zotero PDF link).
+  - Metadata bullets: authors, year, publication, DOI, citekey, and a direct Zotero link.
+  - A `Term Summary` subheading with occurrence counts per search term.
+  - An `Annotations` subheading with numbered occurrences and page-specific Zotero links.
   - A horizontal rule (`---`) separates each paper section.
 
 This format is compatible with note-taking applications like Obsidian and supports direct navigation to Zotero items and PDF pages.
@@ -231,25 +211,12 @@ zotgrep-results/v1:
     zotero_query: bifactor
     full_text_query:
     - psycho
+    search_mode: fulltext
     search_timestamp: '2025-06-08 17:15:00'
     context_window: 2
   summary:
     total_papers_found: 3
     total_annotations_found: 17
-  papers:
-  - title: 'Measurement Invariance in Longitudinal Bifactor Models: Review and Application Based on the p Factor'
-    authors:
-    - Neufeld, Sharon A. S.
-    - St Clair, Michelle
-    - Brodbeck, Jeannette
-    - Wilkinson, Paul O.
-    - Goodyer, Ian M.
-    - Jones, Peter B.
-    year: '2024'
-    citekey: 73ZD2D7S
-    zotero_item_key: 73ZD2D7S
-    zotero_select_url: zotero://select/library/items/73ZD2D7S
-  # ... more papers ...
 ---
 
 # ZotGrep Results
@@ -275,16 +242,26 @@ zotgrep-results/v1:
 
 - **Authors**: Neufeld, Sharon A. S.; St Clair, Michelle; Brodbeck, Jeannette; Wilkinson, Paul O.; Goodyer, Ian M.; Jones, Peter B.
 - **Year**: 2024
+- **Publication**: Psychological Assessment
+- **DOI**: https://doi.org/10.1037/pas0000564
 - **Citekey**: `73ZD2D7S`
 - **Zotero Link**: [Open Item in Zotero](zotero://select/library/items/73ZD2D7S)
 
+#### Term Summary
+
+- `psycho`: 2 occurrences
+
 #### Annotations
 
-> Thus far we have reviewed the importance of establishing longitudinal MI in bifactor models, provided guidance on MI cut-offs to employ when ordered-categorical indicators are utilized, and outlined estimator choices and missing data considerations. ...
-> — Highlight on [Page 8](zotero://open-pdf/library/items/KGDL8AWR?page=8)
+##### Occurrence #1, Page 8
 
-> Psychological Assessment, 30(9), 1174–1185. https://doi.org/10.1037/ pas0000564 ...
-> — Highlight on [Page 18](zotero://open-pdf/library/items/KGDL8AWR?page=18)
+> Thus far we have reviewed the importance of establishing longitudinal MI in bifactor models, provided guidance on MI cut-offs to employ when ordered-categorical indicators are utilized, and outlined estimator choices and missing data considerations. ...
+> - Highlight on [Page 8](zotero://open-pdf/library/items/KGDL8AWR?page=8)
+
+##### Occurrence #2, Page 18
+
+> Psychological Assessment, 30(9), 1174–1185. https://doi.org/10.1037/pas0000564 ...
+> - Highlight on [Page 18](zotero://open-pdf/library/items/KGDL8AWR?page=18)
 
 ---
 
@@ -324,10 +301,6 @@ zotgrep --zotero "machine learning" --fulltext "algorithm, bias" --markdown rese
 # Only creates the Markdown file, no console output
 ```
 
-## Zotero URL Integration
-
-The enhanced version generates Zotero URLs that allow direct access to:
-
 ### Open Item in Zotero
 ```
 zotero://select/library/items/ITEM_KEY
@@ -354,14 +327,17 @@ Reference: Machine Learning in Healthcare (Key: SMITH2023)
 ```
 
 ### CSV Output
+
 The same information is saved in structured CSV format for further analysis, reporting, or integration with other tools.
 
 ### Markdown Output
+
 Results are organized by paper with YAML frontmatter and annotations sections, perfect for research note-taking and literature review workflows.
 
 ## Command Line Arguments
 
 ### Output Options
+
 - `--json FILENAME`: Save results to specified JSON file
 - `--no-json`: Disable the default JSON export
 - `--csv FILENAME`: Save results to specified CSV file
@@ -370,6 +346,7 @@ Results are organized by paper with YAML frontmatter and annotations sections, p
 - `--md-only` or `--markdown-only`: Only save to Markdown, suppress console output
 
 ### Search Term Options
+
 - `--zotero "SEARCH TERMS"`: Specify Zotero metadata search terms directly (e.g., `"machine learning health"`)
 - `--fulltext "TERM1, TERM2"`: Optionally specify full-text search terms as a comma-separated list (e.g., `"algorithm, bias"`)
 - `--metadata-only` or `--no-fulltext`: Skip PDF/full-text processing and return metadata-only results
@@ -377,68 +354,49 @@ Results are organized by paper with YAML frontmatter and annotations sections, p
 - `--publication "TITLE1, TITLE2"` or `--publication-title "TITLE1, TITLE2"`: Filter results by publication title (comma-separated list). Example: `"Nature, Science"`
 
 ### Other Options
+
 - `--config CONFIG`: Path to configuration file (JSON format)
 - `--base-path PATH`: Override base attachment path
 - `--max-results N`: Maximum results for metadata search (default: 100)
 - `--context-window N`: Context sentence window size (default: 2). The default means 2 sentences before and after the keyword is found will be returned. Larger window sizes will return more sentences.
+- `--port PORT`: Port for the local web interface when using `--web` (default: 23120)
 - `--version`: Show version information
 - `--help`: Show help message
 
 ### Environment Variables
+
 - `ZOTGREP_CONFIG_PATH`: Use a custom user config file path
 - `ZOTERO_BASE_ATTACHMENT_PATH`: Base directory for linked-file attachments
 - `ZOTERO_PUBLICATION_TITLE_FILTER`: Filter results by publication title (comma-separated list). Example: `Nature, Science`
 
-## Error Handling
-
-The script includes comprehensive error handling for:
-- Missing or invalid Zotero credentials
-- Network connectivity issues
-- PDF processing errors
-- File system access problems
-- CSV writing errors
-
-## Testing
-
-Run the test suite to verify functionality:
-```bash
-pytest
-```
-or
-```bash
-python -m unittest discover
-```
-
-This will test:
-- Zotero URL generation
-- CSV export functionality
-- Sample data processing
-
-**Deprecation Notice:**
-Running `python test_zotgrep.py` is deprecated. Please use the package-based test suite in the `tests/` directory as shown above.
 
 ## Use Cases
 
 ### Research and Literature Review
+
 - **CSV Export**: Create structured datasets for systematic literature reviews and meta-analyses
 - **Markdown Export**: Generate research notes with proper citations and page references
 - **Direct Zotero Integration**: Jump directly to source materials from search results
 
 ### Academic Writing
+
 - **Evidence Collection**: Quickly locate and cite relevant passages with page-specific references
-- **Collaborative Research**: Share search results in both structured (CSV) and readable (Markdown) formats
+- **Collaborative Research**: Share search results in both structured (CSV, JSON) and readable (Markdown) formats
 - **Literature Synthesis**: Build comprehensive literature reviews with organized annotations
 
 ### Knowledge Management
+
 - **Research Databases**: Create searchable databases of research findings in CSV format
 - **Note-Taking Integration**: Import Markdown results into Obsidian, Notion, or other note-taking apps
 - **Concept Tracking**: Monitor mentions of specific concepts across your entire literature collection
 - **Citation Networks**: Build interconnected knowledge bases with contextual references
 
 ### Workflow Integration
+
 - **Data Analysis**: Use CSV exports with R, Python, or Excel for quantitative literature analysis
 - **Documentation**: Generate Markdown reports for research documentation and sharing
 - **Reference Management**: Seamlessly integrate with existing Zotero workflows
+- **Agentic Workflows**: Let AI agents use the CLI and use JSON (highly structured and machine-readable, less human-readable) output formats.
 
 ## Troubleshooting
 
@@ -475,9 +433,77 @@ Running `python test_zotgrep.py` is deprecated. Please use the package-based tes
 - Building interconnected literature reviews
 - Sharing results in a human-readable format
 
+## Advanced 
+
+### Modifying settings via JSON file
+
+Additional to configuring basic settings via the Web UI, settings can be modified in these ways:
+
+- manually by creating that JSON file
+- by pointing to another file with `--config PATH` or `ZOTGREP_CONFIG_PATH`
+
+The recommended file path is:
+
+```bash
+~/.config/zotgrep/config.json
+```
+
+Typical persistent settings include:
+
+```json
+{
+  "zotero_user_id": "0",
+  "zotero_api_key": "local",
+  "library_type": "user",
+  "base_attachment_path": "/path/to/your/linked/pdfs",
+  "max_results_stage1": 100,
+  "context_sentence_window": 2
+}
+```
+
+If you use only Zotero-stored files, leave `base_attachment_path` empty.
+
+Environment variables override config-file values at runtime. The most relevant ones are:
+
+```bash
+export ZOTERO_BASE_ATTACHMENT_PATH='/path/to/your/zotero/attachments'
+export ZOTGREP_CONFIG_PATH='/path/to/custom/config.json'
+```
+
+### Testing
+
+Run the test suite to verify functionality:
+```bash
+pytest
+```
+or
+```bash
+python -m unittest discover
+```
+
+This will test:
+- Zotero URL generation
+- CSV export functionality
+- Sample data processing
+
+**Deprecation Notice:**
+Running `python test_zotgrep.py` is deprecated. Please use the package-based test suite in the `tests/` directory as shown above.
+
 ## License
 
-This project is open source. Please refer to the license file for details.
+This project is open source published, like Zotero itself, under a GPL license. Please refer to the license file for details.
+
+## Acknowledgments
+
+ZotGrep depends on several upstream open-source projects. In particular:
+
+- [pyzotero](https://github.com/urschrei/pyzotero) for Zotero API access
+- [Flask](https://github.com/pallets/flask) for the local web interface
+- [pypdfium2](https://github.com/pypdfium2-team/pypdfium2) and [PDFium](https://pdfium.googlesource.com/pdfium/) for PDF text extraction
+- [NLTK](https://github.com/nltk/nltk) for text processing utilities
+- [PyYAML](https://github.com/yaml/pyyaml) for YAML serialization in Markdown exports
+
+See [`NOTICE`](NOTICE) for license attributions and upstream license links.
 
 ## Contributing
 
