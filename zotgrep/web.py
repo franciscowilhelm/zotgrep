@@ -456,7 +456,17 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: Georgia, "Times New Roman", serif;
+    font-family:
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      Ubuntu,
+      Cantarell,
+      "Noto Sans",
+      "Helvetica Neue",
+      Arial,
+      sans-serif;
     background:
       radial-gradient(circle at top right, rgba(69,123,157,0.12), transparent 28%),
       radial-gradient(circle at left center, rgba(244,162,97,0.14), transparent 24%),
@@ -866,7 +876,7 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
   <div class="container">
     <div class="header-left">
       <h1>ZotGrep</h1>
-      <span class="version">v2.1.0</span>
+      <span class="version">v3.0.0</span>
     </div>
     <div class="header-right">
       <nav class="nav-links">

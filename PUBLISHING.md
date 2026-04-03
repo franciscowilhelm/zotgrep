@@ -26,7 +26,7 @@ Search [PyPI](https://pypi.org/search/?q=zotgrep) to confirm `zotgrep` is not al
 uv build
 ```
 
-This creates `dist/zotgrep-2.1.0.tar.gz` and `dist/zotgrep-2.1.0-py3-none-any.whl`.
+This creates `dist/zotgrep-3.0.0.tar.gz` and `dist/zotgrep-3.0.0-py3-none-any.whl`.
 
 ## 3. Test on TestPyPI first
 

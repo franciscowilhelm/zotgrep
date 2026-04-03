@@ -161,7 +161,7 @@ Examples:
         parser.add_argument(
             '--version',
             action='version',
-            version='ZotGrep 2.1.0'
+            version='ZotGrep 3.0.0'
         )
 
         return parser.parse_args()
@@ -338,6 +338,7 @@ Examples:
                 from .web import create_app
                 app = create_app()
                 print(f"Starting ZotGrep web interface at http://localhost:{args.port}")
+                print("The Flask localhost-only dev-server warning below is expected for ZotGrep.")
                 app.run(host="127.0.0.1", port=args.port, debug=False)
                 return 0
 
