@@ -358,7 +358,7 @@ Results are organized by paper with YAML frontmatter and annotations sections, p
 - `--config CONFIG`: Path to configuration file (JSON format)
 - `--base-path PATH`: Override base attachment path
 - `--max-results N`: Maximum results for metadata search (default: 100)
-- `--context-window N`: Context sentence window size (default: 2). The default means 2 sentences before and after the keyword is found will be returned. Larger window sizes will return more sentences.
+- `--context-window N`: Context sentence window size (default: 2). The default means 2 sentences before and after the keyword is found will be returned. Larger window sizes will return more sentences. Sentence splitting uses the Zotero item language when available, with a built-in fallback if no language-aware tokenizer is available at runtime.
 - `--port PORT`: Port for the local web interface when using `--web` (default: 23120)
 - `--version`: Show version information
 - `--help`: Show help message
@@ -500,7 +500,7 @@ ZotGrep depends on several upstream open-source projects. In particular:
 - [pyzotero](https://github.com/urschrei/pyzotero) for Zotero API access
 - [Flask](https://github.com/pallets/flask) for the local web interface
 - [pypdfium2](https://github.com/pypdfium2-team/pypdfium2) and [PDFium](https://pdfium.googlesource.com/pdfium/) for PDF text extraction
-- [NLTK](https://github.com/nltk/nltk) for text processing utilities
+- [pySBD](https://github.com/nipunsadvilkar/pySBD) for sentence boundary detection
 - [PyYAML](https://github.com/yaml/pyyaml) for YAML serialization in Markdown exports
 
 See [`NOTICE`](NOTICE) for license attributions and upstream license links.

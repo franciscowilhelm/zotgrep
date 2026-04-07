@@ -30,23 +30,6 @@ def _install_dependency_stubs():
         sys.modules["pyzotero"] = pyzotero_module
         sys.modules["pyzotero.zotero"] = zotero_module
 
-    if "nltk" not in sys.modules:
-        nltk_module = types.ModuleType("nltk")
-
-        class Downloader:
-            DownloadError = LookupError
-
-        class Data:
-            @staticmethod
-            def find(_path):
-                return True
-
-        nltk_module.downloader = Downloader
-        nltk_module.data = Data()
-        nltk_module.download = lambda _name: True
-        nltk_module.sent_tokenize = lambda text: [text]
-        sys.modules["nltk"] = nltk_module
-
     if "pypdfium2" not in sys.modules:
         pdfium_module = types.ModuleType("pypdfium2")
 
@@ -62,6 +45,50 @@ def _install_dependency_stubs():
 
         pdfium_module.PdfDocument = PdfDocument
         sys.modules["pypdfium2"] = pdfium_module
+
+    if "yaml" not in sys.modules:
+        yaml_module = types.ModuleType("yaml")
+
+        class SafeDumper:
+            @classmethod
+            def add_representer(cls, *_args, **_kwargs):
+                return None
+
+        def dump(data, Dumper=None, default_flow_style=False, sort_keys=False, allow_unicode=True):
+            def render(value, indent=0):
+                prefix = "  " * indent
+                if isinstance(value, dict):
+                    lines = []
+                    items = value.items()
+                    if sort_keys:
+                        items = sorted(items)
+                    for key, item in items:
+                        if item == []:
+                            lines.append(f"{prefix}{key}: []")
+                            continue
+                        if isinstance(item, (dict, list)):
+                            lines.append(f"{prefix}{key}:")
+                            lines.extend(render(item, indent + 1))
+                        else:
+                            rendered = "[]" if item == [] else ("" if item is None else str(item))
+                            lines.append(f"{prefix}{key}: {rendered}".rstrip())
+                    return lines
+                if isinstance(value, list):
+                    lines = []
+                    for item in value:
+                        if isinstance(item, (dict, list)):
+                            lines.append(f"{prefix}-")
+                            lines.extend(render(item, indent + 1))
+                        else:
+                            lines.append(f"{prefix}- {item}")
+                    return lines
+                return [f"{prefix}{value}"]
+
+            return "\n".join(render(data)) + "\n"
+
+        yaml_module.SafeDumper = SafeDumper
+        yaml_module.dump = dump
+        sys.modules["yaml"] = yaml_module
 
 
 _install_dependency_stubs()

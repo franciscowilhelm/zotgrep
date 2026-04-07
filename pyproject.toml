@@ -21,7 +21,7 @@ classifiers = [
 urls = { Homepage = "https://github.com/franciscowilhelm/zotgrep", Repository = "https://github.com/franciscowilhelm/zotgrep", Issues = "https://github.com/franciscowilhelm/zotgrep/issues" }
 dependencies = [
     "flask>=3.0",
-    "nltk>=3.9.1",
+    "pysbd>=0.3.4",
     "pypdfium2>=5.3.0",
     "pyzotero>=1.8.0",
     "PyYAML>=6.0.1",

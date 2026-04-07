@@ -24,11 +24,11 @@ PDFium
   Source: https://pdfium.googlesource.com/pdfium/
   License text: https://pdfium.googlesource.com/pdfium/+/refs/heads/main/LICENSE
 
-NLTK
-  License: Apache License 2.0
-  Copyright: NLTK Project
-  Source: https://github.com/nltk/nltk
-  License text: https://github.com/nltk/nltk/blob/develop/LICENSE.txt
+pySBD
+  License: MIT
+  Copyright: Nipun Sadvilkar
+  Source: https://github.com/nipunsadvilkar/pySBD
+  License text: https://github.com/nipunsadvilkar/pySBD/blob/master/LICENSE
 
 PyYAML
   License: MIT

@@ -17,23 +17,6 @@ def _install_dependency_stubs():
         sys.modules["pyzotero"] = pyzotero_module
         sys.modules["pyzotero.zotero"] = zotero_module
 
-    if "nltk" not in sys.modules:
-        nltk_module = types.ModuleType("nltk")
-
-        class Downloader:
-            DownloadError = LookupError
-
-        class Data:
-            @staticmethod
-            def find(_path):
-                return True
-
-        nltk_module.downloader = Downloader
-        nltk_module.data = Data()
-        nltk_module.download = lambda _name: True
-        nltk_module.sent_tokenize = lambda text: [text]
-        sys.modules["nltk"] = nltk_module
-
     if "pypdfium2" not in sys.modules:
         pdfium_module = types.ModuleType("pypdfium2")
 
@@ -101,3 +84,24 @@ class TestZoteroSearchEngine(unittest.TestCase):
 
         self.assertIsNone(result)
         engine.pdf_processor.process_linked_pdf.assert_not_called()
+
+    def test_search_pdf_pages_passes_item_language_to_tokenizer(self):
+        engine = self.search_engine_module.ZoteroSearchEngine(
+            ZotGrepConfig(base_attachment_path="")
+        )
+        engine.text_analyzer.build_page_contexts = Mock(return_value=[])
+
+        findings, counter = engine._search_pdf_pages(
+            text_by_page={1: "alpha sentence"},
+            full_text_terms=["alpha"],
+            item_data={"language": "de-DE"},
+            pdf_info={"key": "PDF123", "filename": "paper.pdf"},
+        )
+
+        self.assertEqual(findings, [])
+        self.assertEqual(counter, {})
+        engine.text_analyzer.build_page_contexts.assert_called_once_with(
+            "alpha sentence",
+            ["alpha"],
+            language="de-DE",
+        )

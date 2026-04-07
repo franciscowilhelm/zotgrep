@@ -5,7 +5,6 @@ This module contains the core search logic that orchestrates Zotero metadata sea
 PDF full-text search, and result processing.
 """
 
-import nltk
 from typing import List, Dict, Any, Optional, Tuple
 from pyzotero import zotero
 
@@ -332,45 +331,33 @@ class ZoteroSearchEngine:
         for page_num, page_text in text_by_page.items():
             if not page_text.strip():
                 continue
-            
-            all_page_sentences = self.text_analyzer.tokenize_sentences(page_text)
-            if not all_page_sentences:
-                continue
-            
-            # Find hits for all terms on this page
-            page_hits = []
-            for term in full_text_terms:
-                hits_for_term = self.text_analyzer.find_context_sentences_detailed(
-                    all_page_sentences, term
-                )
-                page_hits.extend(hits_for_term)
-            
-            if not page_hits:
-                continue
-            
-            # Merge overlapping contexts
-            merged_intervals = self.text_analyzer.merge_overlapping_contexts(
-                page_hits, all_page_sentences
+
+            page_contexts = self.text_analyzer.build_page_contexts(
+                page_text,
+                full_text_terms,
+                language=item_data.get("language"),
             )
-            
+            if not page_contexts:
+                continue
+
             # Create findings for each merged interval
-            for interval_data in merged_intervals:
+            for interval_data in page_contexts:
                 unhighlighted_ctx = interval_data['context_text_unhighlighted']
                 terms_in_context = interval_data['terms_found']
-                
+
                 # Create highlighted context
                 highlighted_ctx = self.text_analyzer.highlight_multiple_terms(
                     unhighlighted_ctx, terms_in_context
                 )
-                
+
                 # Create finding
                 finding = self.result_handler.create_finding(
                     item_data, pdf_info, page_num, terms_in_context,
                     unhighlighted_ctx, highlighted_ctx, include_abstract=include_abstract
                 )
-                
+
                 findings.append(finding)
-                
+
                 # Print progress if verbose
                 if verbose:
                     print(f"      Found '{', '.join(terms_in_context)}' on page {page_num} in '{pdf_info['filename']}'")

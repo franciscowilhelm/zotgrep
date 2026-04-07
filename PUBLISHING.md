@@ -112,7 +112,7 @@ There is no obvious blocker to shipping ZotGrep itself under **GPLv3**. The main
 | pyzotero | Blue Oak Model 1.0.0 | Yes -- recipients must get license text or link to https://blueoakcouncil.org/license/1.0.0 |
 | pypdfium2 | BSD-3-Clause / Apache-2.0 (dual, user's choice) | Yes -- include copyright notice |
 | PDFium (bundled in pypdfium2) | Apache-2.0 | Yes -- include license text |
-| NLTK | Apache-2.0 | Yes -- include license text |
+| pySBD | MIT | Yes -- include copyright notice |
 | PyYAML | MIT | Yes -- include copyright notice |
 
 ## What you need to do
@@ -140,9 +140,9 @@ pypdfium2 - BSD-3-Clause / Apache-2.0
   Copyright pypdfium2-team
   https://github.com/pypdfium2-team/pypdfium2/blob/main/LICENSES/
 
-NLTK - Apache License 2.0
-  Copyright NLTK Project
-  https://github.com/nltk/nltk/blob/develop/LICENSE.txt
+pySBD - MIT
+  Copyright Nipun Sadvilkar
+  https://github.com/nipunsadvilkar/pySBD/blob/master/LICENSE
 
 PyYAML - MIT
   Copyright Kirill Simonov

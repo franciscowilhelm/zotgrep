@@ -20,23 +20,6 @@ def _install_dependency_stubs():
         sys.modules["pyzotero"] = pyzotero_module
         sys.modules["pyzotero.zotero"] = zotero_module
 
-    if "nltk" not in sys.modules:
-        nltk_module = types.ModuleType("nltk")
-
-        class Downloader:
-            DownloadError = LookupError
-
-        class Data:
-            @staticmethod
-            def find(_path):
-                return True
-
-        nltk_module.downloader = Downloader
-        nltk_module.data = Data()
-        nltk_module.download = lambda _name: True
-        nltk_module.sent_tokenize = lambda text: [text]
-        sys.modules["nltk"] = nltk_module
-
     if "pypdfium2" not in sys.modules:
         pdfium_module = types.ModuleType("pypdfium2")
 

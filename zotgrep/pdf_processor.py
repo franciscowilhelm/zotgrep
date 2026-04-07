@@ -13,11 +13,17 @@ import pypdfium2 as pdfium
 
 class PDFProcessor:
     """Handles PDF text extraction and processing."""
-    
+
+    _BULLET_RE = re.compile(r'^(?:[-*•◦▪■]|\(?\d+[\).]|\(?[A-Za-z][\).])\s+')
+    _HEADING_RE = re.compile(r'^[A-Z0-9][A-Z0-9\s:/&,\-]{2,}$')
+    _SOFT_WRAP_HYPHEN_RE = re.compile(r'[A-Za-z]-$')
+    _CONTINUATION_START_RE = re.compile(r'^(?:[a-z0-9]|["\'\)\]\},;:])')
+    _SENTENCE_END_RE = re.compile(r'[.!?]["\')\]]?$')
+
     def __init__(self):
         """Initialize PDF processor."""
         pass
-    
+
     def extract_text_from_pdf_bytes(self, pdf_input: Union[str, io.BytesIO]) -> Optional[Dict[int, str]]:
         """
         Extract text from PDF bytes with better formatting preservation.
@@ -58,22 +64,119 @@ class PDFProcessor:
     def _clean_pdf_text(self, raw_text: str) -> str:
         """
         Clean and format extracted PDF text.
-        
+
         Args:
             raw_text: Raw text extracted from PDF
-            
+
         Returns:
             Cleaned and formatted text
         """
         if not raw_text:
             return ""
-        
-        # Remove excessive whitespace but preserve paragraph breaks
-        cleaned_text = re.sub(r'\n\s*\n', '\n\n', raw_text)  # Normalize paragraph breaks
-        cleaned_text = re.sub(r'[ \t]+', ' ', cleaned_text)   # Normalize spaces
-        
-        return cleaned_text
-    
+
+        normalized_text = self._normalize_whitespace(raw_text)
+        return self._reflow_hard_wrapped_text(normalized_text)
+
+    def _normalize_whitespace(self, raw_text: str) -> str:
+        """Normalize whitespace while preserving paragraph breaks."""
+        text = raw_text.replace("\r\n", "\n").replace("\r", "\n")
+        text = re.sub(r'[ \t\f\v]+', ' ', text)
+        text = re.sub(r' *\n *', '\n', text)
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        return text.strip()
+
+    def _reflow_hard_wrapped_text(self, text: str) -> str:
+        """Repair likely PDF hard wraps without flattening structured text."""
+        if not text:
+            return ""
+
+        blocks = []
+        for raw_block in re.split(r'\n{2,}', text):
+            lines = [line.strip() for line in raw_block.split('\n') if line.strip()]
+            if not lines:
+                continue
+            blocks.append('\n'.join(self._reflow_block(lines)))
+
+        return '\n\n'.join(blocks)
+
+    def _reflow_block(self, lines: list[str]) -> list[str]:
+        """Reflow a paragraph-like block line by line."""
+        reflowed = [lines[0]]
+
+        for line in lines[1:]:
+            previous_line = reflowed[-1]
+            join_mode = self._classify_line_join(previous_line, line)
+
+            if join_mode == "join_hyphen":
+                reflowed[-1] = previous_line[:-1] + line.lstrip()
+            elif join_mode == "join_space":
+                reflowed[-1] = f"{previous_line.rstrip()} {line.lstrip()}"
+            else:
+                reflowed.append(line)
+
+        return reflowed
+
+    def _classify_line_join(self, previous_line: str, next_line: str) -> str:
+        """Decide whether to join two adjacent PDF lines."""
+        if self._should_preserve_line_break(previous_line, next_line):
+            return "preserve"
+
+        if self._SOFT_WRAP_HYPHEN_RE.search(previous_line) and re.match(r'^[a-z]', next_line):
+            return "join_hyphen"
+
+        if self._CONTINUATION_START_RE.match(next_line):
+            return "join_space"
+
+        if not self._SENTENCE_END_RE.search(previous_line):
+            return "join_space"
+
+        return "preserve"
+
+    def _should_preserve_line_break(self, previous_line: str, next_line: str) -> bool:
+        """Keep boundaries for lines that look like structure rather than wrapped prose."""
+        if self._looks_structural_line(previous_line) or self._looks_structural_line(next_line):
+            return True
+
+        if (
+            self._looks_short_fragment(previous_line)
+            and self._looks_short_fragment(next_line)
+            and not self._CONTINUATION_START_RE.match(next_line)
+        ):
+            return True
+
+        if self._SENTENCE_END_RE.search(previous_line) and self._looks_fresh_sentence_start(next_line):
+            return True
+
+        return False
+
+    def _looks_structural_line(self, line: str) -> bool:
+        if self._BULLET_RE.match(line):
+            return True
+        if self._HEADING_RE.match(line) and len(line.split()) <= 12:
+            return True
+        if line.endswith(':') and len(line.split()) <= 8:
+            return True
+        return False
+
+    def _looks_short_fragment(self, line: str) -> bool:
+        words = line.split()
+        if not words:
+            return False
+        if len(words) <= 3 and len(line) <= 28:
+            return True
+        if len(line) <= 40 and not self._SENTENCE_END_RE.search(line):
+            short_token_count = sum(len(word.strip('.,;:()[]')) <= 4 for word in words)
+            return short_token_count >= max(2, len(words) - 1)
+        return False
+
+    def _looks_fresh_sentence_start(self, line: str) -> bool:
+        stripped = line.lstrip()
+        if not stripped:
+            return False
+        if self._BULLET_RE.match(stripped):
+            return True
+        return bool(re.match(r'^(?:["\'\(\[]?[A-Z0-9])', stripped))
+
     def process_linked_pdf(self, base_attachment_dir: str, relative_path: str) -> Optional[Dict[int, str]]:
         """
         Process a linked PDF file.
