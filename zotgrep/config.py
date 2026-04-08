@@ -32,6 +32,10 @@ class ZotGrepConfig:
     context_sentence_window: int = 2
     publication_title_filter: Optional[List[str]] = None
     debug_publication_filter: bool = False
+    item_type_filter: Optional[List[str]] = None
+    collection_filter: Optional[str] = None
+    tag_filter: Optional[List[str]] = None
+    tag_match_mode: str = "all"
 
     # Internal compatibility flag. ZotGrep only supports the local Zotero API.
     use_local_api: bool = True
@@ -80,6 +84,9 @@ class ZotGrepConfig:
         if self.context_sentence_window < 0:
             raise ValueError("context_sentence_window must be non-negative")
 
+        if self.tag_match_mode not in {"all", "any"}:
+            raise ValueError("tag_match_mode must be either 'all' or 'any'")
+
 
 def get_user_config_path(config_path: Optional[str] = None) -> str:
     """Resolve the on-disk path for the user config file."""
@@ -125,6 +132,10 @@ def create_default_config() -> ZotGrepConfig:
         context_sentence_window=2,
         publication_title_filter=None,
         debug_publication_filter=False,
+        item_type_filter=None,
+        collection_filter=None,
+        tag_filter=None,
+        tag_match_mode="all",
         use_local_api=True,
     )
 
@@ -162,6 +173,12 @@ def print_config_info(config: ZotGrepConfig) -> None:
         print(f"Publication title filter: {', '.join(config.publication_title_filter)}")
     if config.debug_publication_filter:
         print("Publication title debug: enabled")
+    if config.item_type_filter:
+        print(f"Item type filter: {', '.join(config.item_type_filter)}")
+    if config.collection_filter:
+        print(f"Collection filter: {config.collection_filter}")
+    if config.tag_filter:
+        print(f"Tag filter ({config.tag_match_mode}): {', '.join(config.tag_filter)}")
 
 
 def _parse_csv_env(value: str) -> Optional[List[str]]:
@@ -169,6 +186,13 @@ def _parse_csv_env(value: str) -> Optional[List[str]]:
         return None
     items = [v.strip() for v in value.split(",") if v.strip()]
     return items or None
+
+
+def _normalize_optional_string(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized or None
 
 
 def _load_config_file_values(
@@ -189,6 +213,14 @@ def _load_config_file_values(
 
     if isinstance(values.get("publication_title_filter"), str):
         values["publication_title_filter"] = _parse_csv_env(values["publication_title_filter"])
+    if isinstance(values.get("item_type_filter"), str):
+        values["item_type_filter"] = _parse_csv_env(values["item_type_filter"])
+    if isinstance(values.get("tag_filter"), str):
+        values["tag_filter"] = _parse_csv_env(values["tag_filter"])
+    if "collection_filter" in values:
+        values["collection_filter"] = _normalize_optional_string(values["collection_filter"])
+    if "tag_match_mode" in values and values["tag_match_mode"] is not None:
+        values["tag_match_mode"] = str(values["tag_match_mode"]).strip().lower()
 
     return {
         key: value
@@ -241,3 +273,19 @@ def _apply_env_overrides(config: ZotGrepConfig) -> None:
     debug_publication = os.getenv("ZOTERO_DEBUG_PUBLICATION_FILTER")
     if debug_publication:
         config.debug_publication_filter = debug_publication.lower() in ["1", "true", "yes"]
+
+    item_type_filter = _parse_csv_env(os.getenv("ZOTERO_ITEM_TYPE_FILTER", ""))
+    if item_type_filter is not None:
+        config.item_type_filter = item_type_filter
+
+    collection_filter = os.getenv("ZOTERO_COLLECTION_FILTER")
+    if collection_filter is not None:
+        config.collection_filter = _normalize_optional_string(collection_filter)
+
+    tag_filter = _parse_csv_env(os.getenv("ZOTERO_TAG_FILTER", ""))
+    if tag_filter is not None:
+        config.tag_filter = tag_filter
+
+    tag_match_mode = os.getenv("ZOTERO_TAG_MATCH_MODE")
+    if tag_match_mode is not None:
+        config.tag_match_mode = tag_match_mode.strip().lower() or "all"

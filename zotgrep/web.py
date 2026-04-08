@@ -22,6 +22,7 @@ from .config import (
 )
 from .result_handler import ResultHandler
 from .search_engine import ZoteroSearchEngine
+from .text_analyzer import metadata_query_uses_unsupported_operators, parse_full_text_query
 
 # Module-level storage for last search results (single-user localhost app)
 _last_search: Dict[str, Any] = {}
@@ -48,6 +49,10 @@ def _build_search_form(config: ZotGrepConfig) -> Dict[str, Any]:
         "metadata_only": False,
         "include_abstract": True,
         "publication_filter": "",
+        "item_type_filter": ", ".join(config.item_type_filter or []),
+        "collection_filter": config.collection_filter or "",
+        "tag_filter": ", ".join(config.tag_filter or []),
+        "tag_match_mode": config.tag_match_mode,
         "max_results": config.max_results_stage1,
         "context_window": config.context_sentence_window,
     }
@@ -197,6 +202,12 @@ def create_app() -> Flask:
         metadata_only = "metadata_only" in request.form
         include_abstract = "include_abstract" in request.form
         publication_filter = request.form.get("publication_filter", "").strip()
+        item_type_filter = request.form.get("item_type_filter", "").strip()
+        collection_filter = request.form.get("collection_filter", "").strip()
+        tag_filter = request.form.get("tag_filter", "").strip()
+        tag_match_mode = request.form.get("tag_match_mode", config.tag_match_mode).strip().lower() or "all"
+        if tag_match_mode not in {"all", "any"}:
+            tag_match_mode = "all"
         max_results = request.form.get("max_results", str(config.max_results_stage1))
         context_window = request.form.get(
             "context_window",
@@ -209,6 +220,10 @@ def create_app() -> Flask:
             "metadata_only": metadata_only,
             "include_abstract": include_abstract,
             "publication_filter": publication_filter,
+            "item_type_filter": item_type_filter,
+            "collection_filter": collection_filter,
+            "tag_filter": tag_filter,
+            "tag_match_mode": tag_match_mode,
             "max_results": max_results,
             "context_window": context_window,
         }
@@ -236,11 +251,38 @@ def create_app() -> Flask:
         else:
             config.publication_title_filter = None
 
-        fulltext_terms = [
+        config.item_type_filter = [
             value.strip()
-            for value in fulltext_str.split(",")
+            for value in item_type_filter.split(",")
             if value.strip()
-        ]
+        ] or None
+        config.collection_filter = collection_filter or None
+        config.tag_filter = [
+            value.strip()
+            for value in tag_filter.split(",")
+            if value.strip()
+        ] or None
+        config.tag_match_mode = tag_match_mode
+
+        warnings: list[str] = []
+        if metadata_query_uses_unsupported_operators(zotero_query):
+            warnings.append(
+                "Metadata search still uses Zotero quick-search semantics. '*', 'AND', and "
+                "'OR' are passed through unchanged and are not interpreted as operators by ZotGrep."
+            )
+
+        fulltext_terms: list[str] = []
+        if fulltext_str:
+            try:
+                fulltext_terms = parse_full_text_query(fulltext_str).leaf_terms
+            except ValueError as exc:
+                return _render_search_page(
+                    config=config,
+                    form=form,
+                    error=f"Invalid full-text query: {exc}",
+                    warnings=warnings,
+                    fulltext_terms=[],
+                )
 
         engine = ZoteroSearchEngine(config)
         if not engine.connect_to_zotero():
@@ -251,13 +293,14 @@ def create_app() -> Flask:
                     "Failed to connect to Zotero. Make sure Zotero is running "
                     "with the local API enabled."
                 ),
+                warnings=warnings,
                 fulltext_terms=fulltext_terms,
             )
 
         try:
             results = engine.search_zotero_and_full_text(
                 zotero_query,
-                fulltext_terms,
+                fulltext_str,
                 include_abstract=include_abstract,
                 metadata_only=metadata_only,
             )
@@ -266,7 +309,7 @@ def create_app() -> Flask:
                 config=config,
                 form=form,
                 error=f"Search error: {exc}",
-                warnings=engine.warnings,
+                warnings=[*warnings, *engine.warnings],
                 fulltext_terms=fulltext_terms,
             )
 
@@ -277,6 +320,7 @@ def create_app() -> Flask:
                 "fulltext_terms": fulltext_terms,
                 "include_abstract": include_abstract,
                 "context_window": config.context_sentence_window,
+                "metadata_filters": engine.get_metadata_filters_for_output(),
             }
         )
 
@@ -286,7 +330,7 @@ def create_app() -> Flask:
             form=form,
             results=results,
             summary=summary,
-            warnings=engine.warnings,
+            warnings=[*warnings, *engine.warnings],
             fulltext_terms=fulltext_terms,
         )
 
@@ -337,6 +381,7 @@ def create_app() -> Flask:
         fulltext_terms = _last_search.get("fulltext_terms")
         include_abstract = _last_search.get("include_abstract", True)
         context_window = _last_search.get("context_window", 2)
+        metadata_filters = _last_search.get("metadata_filters")
 
         handler = ResultHandler()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -359,6 +404,7 @@ def create_app() -> Flask:
                 full_text_query=fulltext_terms,
                 include_abstract=include_abstract,
                 context_window=context_window,
+                metadata_filters=metadata_filters,
             )
             return send_file(
                 path,
@@ -375,6 +421,7 @@ def create_app() -> Flask:
                 full_text_query=fulltext_terms,
                 include_abstract=include_abstract,
                 context_window=context_window,
+                metadata_filters=metadata_filters,
             )
             return send_file(
                 path,
@@ -668,10 +715,14 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
     flex-wrap: wrap;
   }
   .btn {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 0.7rem 1.2rem;
     border-radius: 10px;
     font-size: 0.93rem;
+    line-height: 1.2;
+    min-height: 2.8rem;
     cursor: pointer;
     text-decoration: none;
     font-weight: 600;
@@ -823,6 +874,24 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
     font-size: 0.85rem;
     color: var(--text-muted);
     margin-top: 0.4rem;
+  }
+  details.advanced-search {
+    margin-top: 1rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--card-bg) 88%, white 12%);
+    padding: 0.2rem 1rem 0.9rem;
+  }
+  details.advanced-search summary {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 0;
+    padding: 0.7rem 0;
+  }
+  .advanced-search-body {
+    padding-top: 0.3rem;
   }
   details p {
     font-size: 0.85rem;
@@ -991,39 +1060,86 @@ SEARCH_CONTENT_TEMPLATE = r"""
       <small>Leave empty for metadata-only search.</small>
     </div>
 
-    <div class="form-group">
-      <label for="publication_filter">Publication Title Filter</label>
-      <input type="text" id="publication_filter" name="publication_filter"
-             value="{{ form.get('publication_filter', '') }}"
-             placeholder="Comma-separated publication titles (optional)">
-    </div>
+    {% set advanced_open =
+      form.get('publication_filter', '') or
+      form.get('item_type_filter', '') or
+      form.get('collection_filter', '') or
+      form.get('tag_filter', '') or
+      form.get('tag_match_mode', 'all') != 'all' or
+      form.get('metadata_only') or
+      not form.get('include_abstract', True) or
+      (form.get('max_results', config.max_results_stage1)|string) != (config.max_results_stage1|string) or
+      (form.get('context_window', config.context_sentence_window)|string) != (config.context_sentence_window|string)
+    %}
+    <details class="advanced-search" {{ 'open' if advanced_open else '' }}>
+      <summary>Advanced Search Settings</summary>
+      <div class="advanced-search-body">
+        <div class="form-group">
+          <label for="publication_filter">Publication Title Filter</label>
+          <input type="text" id="publication_filter" name="publication_filter"
+                 value="{{ form.get('publication_filter', '') }}"
+                 placeholder="Comma-separated publication titles">
+        </div>
 
-    <div class="form-row-2">
-      <div class="form-group">
-        <label for="max_results">Max Results</label>
-        <input type="number" id="max_results" name="max_results"
-               value="{{ form.get('max_results', config.max_results_stage1) }}" min="1">
-      </div>
-      <div class="form-group">
-        <label for="context_window">Context Window</label>
-        <input type="number" id="context_window" name="context_window"
-               value="{{ form.get('context_window', config.context_sentence_window) }}" min="0">
-        <small>Sentences before and after a match.</small>
-      </div>
-    </div>
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="item_type_filter">Item Type Filter</label>
+            <input type="text" id="item_type_filter" name="item_type_filter"
+                   value="{{ form.get('item_type_filter', '') }}"
+                   placeholder="Comma-separated item types">
+          </div>
+          <div class="form-group">
+            <label for="collection_filter">Collection Filter</label>
+            <input type="text" id="collection_filter" name="collection_filter"
+                   value="{{ form.get('collection_filter', '') }}"
+                   placeholder="Collection key or exact name">
+          </div>
+        </div>
 
-    <div class="form-group checkbox-group">
-      <label>
-        <input type="checkbox" name="metadata_only"
-               {{ 'checked' if form.get('metadata_only') else '' }}>
-        Metadata only
-      </label>
-      <label>
-        <input type="checkbox" name="include_abstract"
-               {{ 'checked' if form.get('include_abstract', True) else '' }}>
-        Include abstracts
-      </label>
-    </div>
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="tag_filter">Tag Filter</label>
+            <input type="text" id="tag_filter" name="tag_filter"
+                   value="{{ form.get('tag_filter', '') }}"
+                   placeholder="Comma-separated Zotero tags">
+          </div>
+          <div class="form-group">
+            <label for="tag_match_mode">Tag Match</label>
+            <select id="tag_match_mode" name="tag_match_mode">
+              <option value="all" {{ 'selected' if form.get('tag_match_mode', 'all') == 'all' else '' }}>All tags</option>
+              <option value="any" {{ 'selected' if form.get('tag_match_mode') == 'any' else '' }}>Any tag</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="max_results">Max Results</label>
+            <input type="number" id="max_results" name="max_results"
+                   value="{{ form.get('max_results', config.max_results_stage1) }}" min="1">
+          </div>
+          <div class="form-group">
+            <label for="context_window">Context Window</label>
+            <input type="number" id="context_window" name="context_window"
+                   value="{{ form.get('context_window', config.context_sentence_window) }}" min="0">
+            <small>Sentences before and after a match.</small>
+          </div>
+        </div>
+
+        <div class="form-group checkbox-group">
+          <label>
+            <input type="checkbox" name="metadata_only"
+                   {{ 'checked' if form.get('metadata_only') else '' }}>
+            Metadata only
+          </label>
+          <label>
+            <input type="checkbox" name="include_abstract"
+                   {{ 'checked' if form.get('include_abstract', True) else '' }}>
+            Include abstracts
+          </label>
+        </div>
+      </div>
+    </details>
 
     <div class="btn-row">
       <button type="submit" class="btn btn-primary">Run Search</button>

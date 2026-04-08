@@ -97,12 +97,18 @@ zotgrep --zotero "career engagement"
 zotgrep --zotero "career engagement" --fulltext "barriers"
 zotgrep --zotero "career engagement" --metadata-only
 zotgrep --zotero "career engagement" --no-abstract
+zotgrep --zotero "AI ethics" --item-type "journalArticle, bookSection" --tags "privacy, fairness" --tag-match any
+zotgrep --zotero "measurement invariance" --collection "Focused Review"
 ```
 - `--zotero` specifies the metadata search string (e.g., title, author, etc.).
 - `--fulltext` optionally specifies the full-text search terms (comma-separated).
 - `--metadata-only` / `--no-fulltext` runs only the metadata search and skips PDF/full-text processing.
 - abstracts are included by default; `--no-abstract` omits them.
 - `--publication` / `--publication-title` filters results by publication title (comma-separated for multiple).
+- `--item-type` / `--itemtype` filters by Zotero item type (comma-separated for multiple).
+- `--collection` filters by a Zotero collection key or exact collection name.
+- `--tag` / `--tags` filters by Zotero tag (comma-separated for multiple).
+- `--tag-match {all,any}` controls whether all supplied tags are required or any single tag is enough.
 
 This allows for scripting and automation without interactive prompts. All other output and configuration options remain available.
 
@@ -114,6 +120,11 @@ zotgrep --zotero "AI ethics" --fulltext "privacy, fairness" --csv results.csv
 Example with publication filter (list via comma-separated values):
 ```bash
 zotgrep --zotero "AI ethics" --fulltext "privacy, fairness" --publication "Nature, Science"
+```
+
+Example with metadata filters:
+```bash
+zotgrep --zotero "AI ethics" --fulltext "privacy, fairness" --item-type "journalArticle" --collection "Focused Review" --tags "privacy, fairness" --tag-match all
 ```
 
 ### Output Format Options
@@ -149,6 +160,8 @@ Structured JSON output is saved by default unless `--no-json` is used. You can a
 zotgrep --zotero "career engagement" --json results.json
 zotgrep --zotero "career engagement" --no-json
 ```
+
+JSON and Markdown frontmatter both record the applied metadata filters inside `search_details.metadata_filters`.
 
 #### Interactive Output Choice
 
@@ -352,6 +365,10 @@ Results are organized by paper with YAML frontmatter and annotations sections, p
 - `--metadata-only` or `--no-fulltext`: Skip PDF/full-text processing and return metadata-only results
 - `--no-abstract`: Omit abstracts from output
 - `--publication "TITLE1, TITLE2"` or `--publication-title "TITLE1, TITLE2"`: Filter results by publication title (comma-separated list). Example: `"Nature, Science"`
+- `--item-type "TYPE1, TYPE2"` or `--itemtype "TYPE1, TYPE2"`: Filter by Zotero item type. Example: `"journalArticle, book"`
+- `--collection "COLLECTION"`: Filter by Zotero collection key or exact collection name. Example: `"ABCD1234"` or `"Focused Review"`
+- `--tag "TAG1, TAG2"` or `--tags "TAG1, TAG2"`: Filter by Zotero tags. Example: `"privacy, fairness"`
+- `--tag-match {all,any}`: Control how multiple tags are matched. `all` requires every supplied tag; `any` accepts at least one.
 
 ### Other Options
 
@@ -368,6 +385,10 @@ Results are organized by paper with YAML frontmatter and annotations sections, p
 - `ZOTGREP_CONFIG_PATH`: Use a custom user config file path
 - `ZOTERO_BASE_ATTACHMENT_PATH`: Base directory for linked-file attachments
 - `ZOTERO_PUBLICATION_TITLE_FILTER`: Filter results by publication title (comma-separated list). Example: `Nature, Science`
+- `ZOTERO_ITEM_TYPE_FILTER`: Filter by Zotero item type (comma-separated list). Example: `journalArticle, book`
+- `ZOTERO_COLLECTION_FILTER`: Filter by Zotero collection key or exact collection name
+- `ZOTERO_TAG_FILTER`: Filter by Zotero tags (comma-separated list). Example: `privacy, fairness`
+- `ZOTERO_TAG_MATCH_MODE`: Control multi-tag matching with `all` or `any`
 
 
 ## Use Cases
@@ -457,7 +478,11 @@ Typical persistent settings include:
   "library_type": "user",
   "base_attachment_path": "/path/to/your/linked/pdfs",
   "max_results_stage1": 100,
-  "context_sentence_window": 2
+  "context_sentence_window": 2,
+  "item_type_filter": ["journalArticle"],
+  "collection_filter": "Focused Review",
+  "tag_filter": ["privacy", "fairness"],
+  "tag_match_mode": "all"
 }
 ```
 
@@ -468,6 +493,10 @@ Environment variables override config-file values at runtime. The most relevant 
 ```bash
 export ZOTERO_BASE_ATTACHMENT_PATH='/path/to/your/zotero/attachments'
 export ZOTGREP_CONFIG_PATH='/path/to/custom/config.json'
+export ZOTERO_ITEM_TYPE_FILTER='journalArticle,book'
+export ZOTERO_COLLECTION_FILTER='Focused Review'
+export ZOTERO_TAG_FILTER='privacy,fairness'
+export ZOTERO_TAG_MATCH_MODE='any'
 ```
 
 ### Testing

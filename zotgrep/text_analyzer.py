@@ -7,7 +7,263 @@ and text highlighting functionality.
 
 import importlib
 import re
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
+
+
+@dataclass(frozen=True)
+class FullTextTerm:
+    """A single searchable full-text term or phrase."""
+
+    raw: str
+    pattern: re.Pattern[str] = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        normalized = self.raw.strip()
+        if not normalized:
+            raise ValueError("Full-text terms cannot be empty.")
+        object.__setattr__(self, "raw", normalized)
+        object.__setattr__(self, "pattern", compile_full_text_term_pattern(normalized))
+
+    def matches(self, text: str) -> bool:
+        return bool(self.pattern.search(text))
+
+
+class FullTextNode:
+    """Base class for full-text query AST nodes."""
+
+    def evaluate(self, text: str) -> Optional[set[str]]:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class FullTextTermNode(FullTextNode):
+    term: FullTextTerm
+
+    def evaluate(self, text: str) -> Optional[set[str]]:
+        if self.term.matches(text):
+            return {self.term.raw}
+        return None
+
+
+@dataclass(frozen=True)
+class FullTextAndNode(FullTextNode):
+    left: FullTextNode
+    right: FullTextNode
+
+    def evaluate(self, text: str) -> Optional[set[str]]:
+        left_match = self.left.evaluate(text)
+        if left_match is None:
+            return None
+        right_match = self.right.evaluate(text)
+        if right_match is None:
+            return None
+        return left_match | right_match
+
+
+@dataclass(frozen=True)
+class FullTextOrNode(FullTextNode):
+    left: FullTextNode
+    right: FullTextNode
+
+    def evaluate(self, text: str) -> Optional[set[str]]:
+        left_match = self.left.evaluate(text)
+        right_match = self.right.evaluate(text)
+        if left_match is None and right_match is None:
+            return None
+        return (left_match or set()) | (right_match or set())
+
+
+@dataclass(frozen=True)
+class FullTextQuery:
+    """Parsed full-text query with ordered leaf terms."""
+
+    raw: str
+    root: FullTextNode
+    terms: Tuple[FullTextTerm, ...]
+
+    @property
+    def leaf_terms(self) -> List[str]:
+        return [term.raw for term in self.terms]
+
+    def matching_terms(self, text: str) -> List[str]:
+        matched = self.root.evaluate(text)
+        if matched is None:
+            return []
+        return [term.raw for term in self.terms if term.raw in matched]
+
+    def term_pattern(self, term: str) -> re.Pattern[str]:
+        for candidate in self.terms:
+            if candidate.raw == term:
+                return candidate.pattern
+        return compile_full_text_term_pattern(term)
+
+
+def compile_full_text_term_pattern(term: str) -> re.Pattern[str]:
+    """Compile a phrase or wildcard term into a safe regex."""
+    stripped = term.strip()
+    if not stripped:
+        raise ValueError("Full-text terms cannot be empty.")
+
+    pieces: List[str] = []
+    for chunk_index, chunk in enumerate(re.split(r"(\s+)", stripped)):
+        if not chunk:
+            continue
+        if chunk.isspace():
+            pieces.append(r"\s+")
+            continue
+
+        token_parts = [re.escape(part) for part in chunk.split("*")]
+        token_pattern = r"\w*".join(token_parts)
+        if re.search(r"\w", chunk) and chunk[0].isalnum():
+            token_pattern = r"\b" + token_pattern
+        if re.search(r"\w", chunk) and chunk[-1].isalnum():
+            token_pattern = token_pattern + r"\b"
+        pieces.append(token_pattern)
+
+    return re.compile("".join(pieces), re.IGNORECASE)
+
+
+def metadata_query_uses_unsupported_operators(query: str) -> bool:
+    """Detect operator-like syntax that Zotero quick search does not support."""
+    return bool(re.search(r"\*|\bAND\b|\bOR\b", query or "", re.IGNORECASE))
+
+
+class FullTextQueryParser:
+    """Parse the simplified v1 full-text grammar."""
+
+    _LEADING_OPERATOR_RE = re.compile(r"(?i)(AND|OR)\b")
+    _NEXT_DELIMITER_RE = re.compile(r'(?i)\s+\b(?:AND|OR)\b(?=\s+|$|[(),"])|[(),"]')
+
+    def __init__(self, query: str):
+        self.query = query or ""
+        self.tokens = self._tokenize(self.query)
+        self.position = 0
+        self.terms: List[FullTextTerm] = []
+
+    def parse(self) -> FullTextQuery:
+        if not self.query.strip():
+            raise ValueError("Full-text query must provide at least one term.")
+
+        root = self._parse_or()
+        if self._peek() is not None:
+            raise ValueError(f"Unexpected token '{self._peek()}'.")
+
+        if not self.terms:
+            raise ValueError("Full-text query must provide at least one term.")
+
+        return FullTextQuery(
+            raw=self.query,
+            root=root,
+            terms=tuple(self.terms),
+        )
+
+    def _tokenize(self, query: str) -> List[str]:
+        tokens: List[str] = []
+        position = 0
+        while position < len(query):
+            while position < len(query) and query[position].isspace():
+                position += 1
+            if position >= len(query):
+                break
+
+            current = query[position]
+            if current in {"(", ")", ","}:
+                tokens.append(current)
+                position += 1
+                continue
+
+            if current == '"':
+                closing_quote = query.find('"', position + 1)
+                if closing_quote == -1:
+                    raise ValueError("Unterminated quoted phrase in full-text query.")
+                tokens.append(query[position:closing_quote + 1])
+                position = closing_quote + 1
+                continue
+
+            operator_match = self._LEADING_OPERATOR_RE.match(query[position:])
+            if operator_match:
+                tokens.append(operator_match.group(1).upper())
+                position += operator_match.end()
+                continue
+
+            delimiter_match = self._NEXT_DELIMITER_RE.search(query, position)
+            next_position = delimiter_match.start() if delimiter_match else len(query)
+            term = query[position:next_position].strip()
+            if not term:
+                remaining = query[position:].strip()
+                raise ValueError(f"Invalid full-text query near '{remaining}'.")
+            tokens.append(term)
+            position = next_position
+
+        return [token for token in tokens if token]
+
+    def _peek(self) -> Optional[str]:
+        if self.position >= len(self.tokens):
+            return None
+        return self.tokens[self.position]
+
+    def _consume(self) -> str:
+        token = self._peek()
+        if token is None:
+            raise ValueError("Unexpected end of full-text query.")
+        self.position += 1
+        return token
+
+    def _parse_or(self) -> FullTextNode:
+        node = self._parse_and()
+        while True:
+            token = self._peek()
+            if token is None or not self._is_or(token):
+                return node
+            self._consume()
+            node = FullTextOrNode(node, self._parse_and())
+
+    def _parse_and(self) -> FullTextNode:
+        node = self._parse_term()
+        while True:
+            token = self._peek()
+            if token is None or not self._is_and(token):
+                return node
+            self._consume()
+            node = FullTextAndNode(node, self._parse_term())
+
+    def _parse_term(self) -> FullTextNode:
+        token = self._peek()
+        if token is None:
+            raise ValueError("Full-text query cannot end with an operator.")
+        if token in {"(", ")"}:
+            raise ValueError("Parentheses are not supported in full-text queries.")
+        if self._is_operator(token):
+            raise ValueError(f"Expected a search term before '{token}'.")
+
+        raw_term = self._consume()
+        if raw_term.startswith('"'):
+            raw_term = raw_term[1:-1]
+        term = FullTextTerm(raw_term)
+        self.terms.append(term)
+        return FullTextTermNode(term)
+
+    def _is_operator(self, token: str) -> bool:
+        return self._is_and(token) or self._is_or(token)
+
+    def _is_and(self, token: str) -> bool:
+        return token.upper() == "AND"
+
+    def _is_or(self, token: str) -> bool:
+        return token == "," or token.upper() == "OR"
+
+
+def parse_full_text_query(query: str | List[str] | FullTextQuery) -> FullTextQuery:
+    """Normalize incoming full-text input into a parsed query."""
+    if isinstance(query, FullTextQuery):
+        return query
+    if isinstance(query, list):
+        normalized_terms = [term.strip() for term in query if term and term.strip()]
+        if not normalized_terms:
+            raise ValueError("Full-text query must provide at least one term.")
+        return FullTextQueryParser(" OR ".join(normalized_terms)).parse()
+    return FullTextQueryParser(query).parse()
 
 
 class TextAnalyzer:
@@ -74,7 +330,7 @@ class TextAnalyzer:
         sentences = self.tokenize_sentences(text)
 
         for i, sentence in enumerate(sentences):
-            if re.search(re.escape(term), sentence, re.IGNORECASE):
+            if compile_full_text_term_pattern(term).search(sentence):
                 start_idx = max(0, i - sentence_window)
                 end_idx = min(len(sentences), i + sentence_window + 1)
 
@@ -100,7 +356,7 @@ class TextAnalyzer:
     def build_page_contexts(
         self,
         text: str,
-        terms: List[str],
+        terms: List[str] | FullTextQuery,
         language: Optional[str] = None,
         sentence_window: Optional[int] = None,
         char_window: int = 300,
@@ -117,26 +373,32 @@ class TextAnalyzer:
         if sentence_window is None:
             sentence_window = self.context_sentence_window
 
+        query = parse_full_text_query(terms)
+        matched_terms = query.matching_terms(text)
+        if not matched_terms:
+            return []
+
         sentences = self.tokenize_sentences(text, language=language)
         if sentences and not self._page_looks_noisy(text, sentences):
-            sentence_contexts = self._build_block_contexts(sentences, terms, sentence_window)
+            sentence_contexts = self._build_block_contexts(sentences, matched_terms, sentence_window, query)
             if sentence_contexts:
                 return sentence_contexts
 
         paragraphs = self._split_paragraphs(text)
-        paragraph_contexts = self._build_block_contexts(paragraphs, terms, 0)
+        paragraph_contexts = self._build_block_contexts(paragraphs, matched_terms, 0, query)
         if paragraph_contexts:
             return paragraph_contexts
 
-        return self._build_character_contexts(text, terms, char_window)
+        return self._build_character_contexts(text, matched_terms, char_window, query)
 
     def find_context(self, text: str, term: str, window_chars: int = 300) -> List[str]:
         """
         Find a term in text and return a character-based snippet around it.
         """
         contexts = []
+        term_pattern = compile_full_text_term_pattern(term)
 
-        for match in re.finditer(re.escape(term), text, re.IGNORECASE):
+        for match in term_pattern.finditer(text):
             start, end = match.span()
             context_start, context_end = self._context_span_from_match(text, start, end, window_chars)
 
@@ -146,24 +408,29 @@ class TextAnalyzer:
             if context_end < len(text):
                 snippet = f"{snippet}..."
 
-            highlighted_snippet = self._highlight_term(snippet, match.group(0))
+            highlighted_snippet = self._highlight_term(snippet, term)
             contexts.append(highlighted_snippet)
 
         return contexts
 
     def _highlight_term(self, text: str, term: str) -> str:
         """Highlight a term in text with *** markers."""
-        term_pattern = re.compile(re.escape(term), re.IGNORECASE)
-        return term_pattern.sub(f"***{term}***", text)
+        term_pattern = compile_full_text_term_pattern(term)
+        return term_pattern.sub(lambda match: f"***{match.group(0)}***", text)
 
-    def highlight_multiple_terms(self, text: str, terms: List[str]) -> str:
+    def highlight_multiple_terms(
+        self,
+        text: str,
+        terms: List[str],
+        query: Optional[FullTextQuery] = None,
+    ) -> str:
         """Highlight multiple terms in text with *** markers."""
         highlighted_text = text
 
         for term in sorted(terms, key=len, reverse=True):
-            term_pattern = re.compile(r'\b(' + re.escape(term) + r')\b', re.IGNORECASE)
+            term_pattern = query.term_pattern(term) if query else compile_full_text_term_pattern(term)
             highlighted_text = term_pattern.sub(
-                lambda m: f"***{m.group(1)}***",
+                lambda m: f"***{m.group(0)}***",
                 highlighted_text,
             )
 
@@ -338,13 +605,14 @@ class TextAnalyzer:
         blocks: List[str],
         terms: List[str],
         block_window: int,
+        query: FullTextQuery,
     ) -> List[Dict[str, Any]]:
         if not blocks:
             return []
 
         page_hits = []
         for term in terms:
-            page_hits.extend(self._find_context_blocks_detailed(blocks, term, block_window))
+            page_hits.extend(self._find_context_blocks_detailed(blocks, term, block_window, query))
 
         if not page_hits:
             return []
@@ -356,9 +624,10 @@ class TextAnalyzer:
         blocks: List[str],
         term: str,
         block_window: int,
+        query: Optional[FullTextQuery] = None,
     ) -> List[Dict[str, Any]]:
         contexts_data = []
-        term_pattern_search = re.compile(r'\b' + re.escape(term) + r'\b', re.IGNORECASE)
+        term_pattern_search = query.term_pattern(term) if query else compile_full_text_term_pattern(term)
 
         for i, block in enumerate(blocks):
             if term_pattern_search.search(block):
@@ -437,11 +706,12 @@ class TextAnalyzer:
         text: str,
         terms: List[str],
         window_chars: int,
+        query: FullTextQuery,
     ) -> List[Dict[str, Any]]:
         page_hits = []
 
         for term in terms:
-            term_pattern_search = re.compile(r'\b' + re.escape(term) + r'\b', re.IGNORECASE)
+            term_pattern_search = query.term_pattern(term)
             for match in term_pattern_search.finditer(text):
                 context_start, context_end = self._context_span_from_match(
                     text,

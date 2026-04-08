@@ -11,6 +11,7 @@ from typing import List, Tuple, Optional
 from .config import ZotGrepConfig, get_config, print_config_info
 from .search_engine import ZoteroSearchEngine
 from .result_handler import ResultHandler
+from .text_analyzer import metadata_query_uses_unsupported_operators, parse_full_text_query
 
 
 class ZotGrepCLI:
@@ -73,6 +74,33 @@ Examples:
             type=str,
             dest='publication_title',
             help='Filter results by publication title (comma-separated for multiple)'
+        )
+
+        parser.add_argument(
+            '--item-type', '--itemtype',
+            type=str,
+            dest='item_type',
+            help='Filter results by Zotero item type (comma-separated for multiple)'
+        )
+
+        parser.add_argument(
+            '--collection',
+            type=str,
+            help='Filter results by Zotero collection key or exact collection name'
+        )
+
+        parser.add_argument(
+            '--tag', '--tags',
+            type=str,
+            dest='tag_filter',
+            help='Filter results by Zotero tags (comma-separated for multiple)'
+        )
+
+        parser.add_argument(
+            '--tag-match',
+            type=str,
+            choices=['all', 'any'],
+            help='How multiple tag filters should match items (default: config or all)'
         )
 
         parser.add_argument(
@@ -166,12 +194,12 @@ Examples:
 
         return parser.parse_args()
     
-    def get_search_terms_interactive(self) -> Tuple[str, List[str]]:
+    def get_search_terms_interactive(self) -> Tuple[str, str]:
         """
         Get search terms from user input interactively.
         
         Returns:
-            Tuple of (metadata_query, full_text_terms_list)
+            Tuple of (metadata_query, full_text_query)
         """
         print("\n=== ZotGrep - Interactive Mode ===")
         
@@ -183,10 +211,8 @@ Examples:
         full_text_query_str = input(
             "Enter full-text search terms, comma-separated (optional; leave blank to skip): "
         ).strip()
-        
-        full_text_terms_list = [term.strip() for term in full_text_query_str.split(',') if term.strip()]
-        
-        return metadata_query, full_text_terms_list
+
+        return metadata_query, full_text_query_str
     
     def validate_config(self, config: ZotGrepConfig) -> bool:
         """
@@ -214,6 +240,12 @@ Examples:
                 print("\nIf you use Zotero-stored files only, you can leave BASE_ATTACHMENT_PATH unset.")
             
             return False
+
+    def _parse_csv_argument(self, value: Optional[str]) -> Optional[List[str]]:
+        if value is None:
+            return None
+        parsed = [item.strip() for item in value.split(',') if item.strip()]
+        return parsed or None
     
     def create_config_from_args(self, args: argparse.Namespace) -> ZotGrepConfig:
         """
@@ -244,6 +276,18 @@ Examples:
 
         if args.debug_publication:
             config.debug_publication_filter = True
+
+        if args.item_type is not None:
+            config.item_type_filter = self._parse_csv_argument(args.item_type)
+
+        if args.collection is not None:
+            config.collection_filter = args.collection.strip() or None
+
+        if args.tag_filter is not None:
+            config.tag_filter = self._parse_csv_argument(args.tag_filter)
+
+        if args.tag_match is not None:
+            config.tag_match_mode = args.tag_match
         
         return config
     
@@ -257,6 +301,7 @@ Examples:
         allow_interactive_output: bool = True,
         context_window: Optional[int] = None,
         search_timestamp: Optional[str] = None,
+        metadata_filters: Optional[dict] = None,
     ) -> None:
         """
         Handle output based on command-line arguments.
@@ -280,6 +325,7 @@ Examples:
                 include_abstract=include_abstract,
                 context_window=context_window,
                 search_timestamp=search_timestamp,
+                metadata_filters=metadata_filters,
             )
 
         # Save to CSV if specified
@@ -320,6 +366,7 @@ Examples:
                         include_abstract=include_abstract,
                         context_window=context_window,
                         search_timestamp=search_timestamp,
+                        metadata_filters=metadata_filters,
                     )
     
     def run(self) -> int:
@@ -359,22 +406,37 @@ Examples:
             # Get search terms: prefer CLI args, else interactive
             if args.zotero:
                 metadata_query = args.zotero.strip()
-                full_text_terms = [term.strip() for term in args.fulltext.split(',') if term.strip()] if args.fulltext else []
+                full_text_query = args.fulltext or ""
                 if not metadata_query:
                     print("Error: --zotero argument cannot be empty.")
                     return 1
                 if args.metadata_only and args.fulltext:
                     print("Error: --metadata-only/--no-fulltext cannot be combined with --fulltext.")
                     return 1
-                if args.fulltext is not None and not full_text_terms:
-                    print(
-                        "Error: --fulltext argument must provide at least one term. "
-                        "If you want metadata-only results, omit --fulltext or pass "
-                        "--metadata-only/--no-fulltext."
-                    )
-                    return 1
             else:
-                metadata_query, full_text_terms = self.get_search_terms_interactive()
+                metadata_query, full_text_query = self.get_search_terms_interactive()
+
+            if metadata_query_uses_unsupported_operators(metadata_query):
+                print(
+                    "Warning: metadata search still uses Zotero quick-search semantics. "
+                    "'*', 'AND', and 'OR' are passed through unchanged and are not interpreted "
+                    "as operators by ZotGrep."
+                )
+
+            full_text_terms: List[str] = []
+            if full_text_query.strip():
+                try:
+                    full_text_terms = parse_full_text_query(full_text_query).leaf_terms
+                except ValueError as exc:
+                    print(f"Error: invalid --fulltext query: {exc}")
+                    return 1
+            elif args.fulltext is not None:
+                print(
+                    "Error: --fulltext argument must provide at least one term. "
+                    "If you want metadata-only results, omit --fulltext or pass "
+                    "--metadata-only/--no-fulltext."
+                )
+                return 1
             
             # Create and run search engine
             search_engine = ZoteroSearchEngine(config)
@@ -383,12 +445,16 @@ Examples:
                 return 1
             
             print("\nStarting search...")
-            results = search_engine.search_zotero_and_full_text(
-                metadata_query,
-                full_text_terms,
-                include_abstract=not args.no_abstract,
-                metadata_only=args.metadata_only,
-            )
+            try:
+                results = search_engine.search_zotero_and_full_text(
+                    metadata_query,
+                    full_text_query,
+                    include_abstract=not args.no_abstract,
+                    metadata_only=args.metadata_only,
+                )
+            except ValueError as exc:
+                print(f"Error: {exc}")
+                return 1
 
             # Handle output, passing search metadata
             self.handle_output(
@@ -400,6 +466,7 @@ Examples:
                 allow_interactive_output=not bool(args.zotero),
                 context_window=config.context_sentence_window,
                 search_timestamp=None,  # Could be set to now or from results if needed
+                metadata_filters=search_engine.get_metadata_filters_for_output(),
             )
 
             # Print summary

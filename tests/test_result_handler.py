@@ -100,6 +100,7 @@ from zotgrep.result_handler import (
     save_results_to_json,
     save_results_to_markdown,
 )
+from zotgrep.config import ZotGrepConfig
 
 
 class TestResultHandler(unittest.TestCase):
@@ -472,6 +473,13 @@ class TestResultHandler(unittest.TestCase):
                 results,
                 tmp_filename,
                 full_text_query=['algorithm', 'machine learning', 'neural network'],
+                metadata_filters={
+                    'item_types': ['journalArticle'],
+                    'collection': {'input': 'Focused Review', 'key': 'ABCD1234', 'name': 'Focused Review'},
+                    'tags': ['alpha', 'beta'],
+                    'tag_match_mode': 'any',
+                    'publication_titles': [],
+                },
             )
 
             # Verify file exists and has correct content
@@ -488,6 +496,10 @@ class TestResultHandler(unittest.TestCase):
                     yaml_frontmatter = ""
                 # Check that 'annotations:' is NOT present in YAML frontmatter
                 self.assertNotIn('annotations:', yaml_frontmatter)
+                self.assertIn('metadata_filters:', yaml_frontmatter)
+                self.assertIn('item_types:', yaml_frontmatter)
+                self.assertIn('tag_match_mode: any', yaml_frontmatter)
+                self.assertIn('Focused Review', yaml_frontmatter)
 
                 # Check for expected content
                 self.assertIn('# ZotGrep Results', content)
@@ -508,7 +520,7 @@ class TestResultHandler(unittest.TestCase):
                 self.assertIn('##### Occurrence #1, Page 5', content)
                 self.assertIn('##### Occurrence #2, Page 7', content)
                 self.assertIn('The **machine learning** **algorithm** demonstrated significant improvements.', content)
-                self.assertIn('**Neural network**s have shown promising results in this domain.', content)
+                self.assertIn('Neural networks have shown promising results in this domain.', content)
                 self.assertIn('[Page 5](zotero://open-pdf/library/items/PDF123?page=5)', content)
                 self.assertIn('[Page 7](zotero://open-pdf/library/items/PDF123?page=7)', content)
 
@@ -566,12 +578,21 @@ class TestResultHandler(unittest.TestCase):
                 include_abstract=True,
                 context_window=2,
                 search_timestamp='2023-01-01 12:00:00',
+                metadata_filters={
+                    'item_types': ['journalArticle'],
+                    'collection': {'input': 'Focused Review', 'key': 'ABCD1234', 'name': 'Focused Review'},
+                    'tags': ['alpha'],
+                    'tag_match_mode': 'all',
+                    'publication_titles': [],
+                },
             )
 
             with open(tmp_filename, 'r', encoding='utf-8') as mdfile:
                 content = mdfile.read()
 
             self.assertIn('full_text_query: []', content)
+            self.assertIn('metadata_filters:', content)
+            self.assertIn('tag_match_mode: all', content)
             self.assertNotIn('abstract: A concise abstract.', content)
             self.assertIn('total_papers_found: 1', content)
             self.assertIn('total_annotations_found: 0', content)
@@ -624,6 +645,13 @@ class TestResultHandler(unittest.TestCase):
                 include_abstract=True,
                 context_window=2,
                 search_timestamp='2023-01-01 12:00:00',
+                metadata_filters={
+                    'item_types': ['journalArticle'],
+                    'collection': {'input': 'Focused Review', 'key': 'ABCD1234', 'name': 'Focused Review'},
+                    'tags': ['alpha'],
+                    'tag_match_mode': 'all',
+                    'publication_titles': [],
+                },
             )
 
             with open(tmp_filename, 'r', encoding='utf-8') as jsonfile:
@@ -631,6 +659,8 @@ class TestResultHandler(unittest.TestCase):
 
             self.assertIn('"zotgrep_results_version": 1', content)
             self.assertIn('"search_mode": "metadata_only"', content)
+            self.assertIn('"metadata_filters"', content)
+            self.assertIn('"tag_match_mode": "all"', content)
             self.assertIn('"doi": "10.1000/json-test"', content)
             self.assertIn('"abstract": "A concise abstract."', content)
         finally:
@@ -766,7 +796,7 @@ class TestResultHandler(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         mock_search_engine_instance.search_zotero_and_full_text.assert_called_once_with(
-            'test zotero', [], include_abstract=True, metadata_only=False
+            'test zotero', '', include_abstract=True, metadata_only=False
         )
         mock_result_handler_instance.save_results_to_markdown.assert_called_once()
         self.assertEqual(mock_result_handler_instance.save_results_to_markdown.call_args[1]['full_text_query'], [])
@@ -814,7 +844,7 @@ class TestResultHandler(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         mock_search_engine_instance.search_zotero_and_full_text.assert_called_once_with(
-            'test zotero', [], include_abstract=True, metadata_only=False
+            'test zotero', '', include_abstract=True, metadata_only=False
         )
         mock_result_handler_instance.save_results_to_markdown.assert_called_once()
         self.assertEqual(mock_result_handler_instance.save_results_to_markdown.call_args[1]['include_abstract'], True)
@@ -860,7 +890,7 @@ class TestResultHandler(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         mock_search_engine_instance.search_zotero_and_full_text.assert_called_once_with(
-            'test zotero', [], include_abstract=False, metadata_only=False
+            'test zotero', '', include_abstract=False, metadata_only=False
         )
         self.assertEqual(
             mock_result_handler.return_value.save_results_to_markdown.call_args[1]['include_abstract'],
@@ -934,9 +964,94 @@ class TestResultHandler(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         mock_search_engine_instance.search_zotero_and_full_text.assert_called_once_with(
-            'test zotero', [], include_abstract=True, metadata_only=True
+            'test zotero', '', include_abstract=True, metadata_only=True
         )
         mock_result_handler.return_value.save_results_to_json.assert_not_called()
+
+    @patch('builtins.print')
+    @patch('zotgrep.cli.ResultHandler')
+    @patch('zotgrep.cli.ZoteroSearchEngine')
+    @patch('zotgrep.cli.get_config')
+    @patch('zotgrep.cli.print_config_info')
+    def test_cli_warns_for_metadata_operator_like_syntax(
+        self,
+        mock_print_config,
+        mock_get_config,
+        mock_search_engine,
+        mock_result_handler,
+        mock_print,
+    ):
+        mock_config_instance = mock_get_config.return_value
+        mock_config_instance.validate.return_value = True
+        mock_config_instance.context_sentence_window = 2
+
+        mock_search_engine_instance = mock_search_engine.return_value
+        mock_search_engine_instance.connect_to_zotero.return_value = True
+        mock_search_engine_instance.search_zotero_and_full_text.return_value = []
+
+        test_args = ['--zotero', 'alpha AND beta', '--no-json']
+        with patch.object(sys, 'argv', ['zotgrep'] + test_args):
+            from zotgrep.cli import main
+            exit_code = main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(
+            any(
+                "metadata search still uses Zotero quick-search semantics" in call.args[0]
+                for call in mock_print.call_args_list
+                if call.args
+            )
+        )
+
+    @patch('zotgrep.cli.ResultHandler')
+    @patch('zotgrep.cli.ZoteroSearchEngine')
+    @patch('zotgrep.cli.get_config')
+    @patch('zotgrep.cli.print_config_info')
+    def test_cli_rejects_invalid_fulltext_query(
+        self, mock_print_config, mock_get_config, mock_search_engine, mock_result_handler
+    ):
+        mock_config_instance = mock_get_config.return_value
+        mock_config_instance.validate.return_value = True
+        mock_config_instance.context_sentence_window = 2
+
+        test_args = ['--zotero', 'test zotero', '--fulltext', '(alpha OR beta)']
+        with patch.object(sys, 'argv', ['zotgrep'] + test_args), patch('builtins.print') as mock_print:
+            from zotgrep.cli import main
+            exit_code = main()
+
+        self.assertEqual(exit_code, 1)
+        mock_search_engine.return_value.search_zotero_and_full_text.assert_not_called()
+        self.assertTrue(
+            any("invalid --fulltext query" in call.args[0] for call in mock_print.call_args_list if call.args)
+        )
+
+    @patch('zotgrep.cli.get_config')
+    def test_cli_create_config_from_filter_args(self, mock_get_config):
+        from argparse import Namespace
+        from zotgrep.cli import ZotGrepCLI
+
+        mock_get_config.return_value = ZotGrepConfig(base_attachment_path="")
+        cli = ZotGrepCLI()
+
+        config = cli.create_config_from_args(
+            Namespace(
+                config=None,
+                base_path=None,
+                max_results=100,
+                context_window=2,
+                publication_title=None,
+                debug_publication=False,
+                item_type="journalArticle, book",
+                collection="Focused Review",
+                tag_filter="alpha, beta",
+                tag_match="any",
+            )
+        )
+
+        self.assertEqual(config.item_type_filter, ["journalArticle", "book"])
+        self.assertEqual(config.collection_filter, "Focused Review")
+        self.assertEqual(config.tag_filter, ["alpha", "beta"])
+        self.assertEqual(config.tag_match_mode, "any")
 
 
 class TestBackwardCompatibilityFunctions(unittest.TestCase):

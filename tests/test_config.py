@@ -81,6 +81,10 @@ class TestZotGrepConfig(unittest.TestCase):
                 base_attachment_path=attachments_dir,
                 max_results_stage1=42,
                 context_sentence_window=5,
+                item_type_filter=["journalArticle", "book"],
+                collection_filter="ABCD1234",
+                tag_filter=["meta-analysis", "SEM"],
+                tag_match_mode="any",
             )
             saved_path = save_config_to_file(config, config_path=config_path)
             loaded = load_config_from_file(config_path=config_path)
@@ -89,6 +93,10 @@ class TestZotGrepConfig(unittest.TestCase):
         self.assertEqual(loaded.base_attachment_path, attachments_dir)
         self.assertEqual(loaded.max_results_stage1, 42)
         self.assertEqual(loaded.context_sentence_window, 5)
+        self.assertEqual(loaded.item_type_filter, ["journalArticle", "book"])
+        self.assertEqual(loaded.collection_filter, "ABCD1234")
+        self.assertEqual(loaded.tag_filter, ["meta-analysis", "SEM"])
+        self.assertEqual(loaded.tag_match_mode, "any")
 
     def test_get_config_applies_file_then_env_overrides(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -109,6 +117,10 @@ class TestZotGrepConfig(unittest.TestCase):
                 {
                     "ZOTGREP_CONFIG_PATH": config_path,
                     "ZOTERO_MAX_RESULTS": "77",
+                    "ZOTERO_ITEM_TYPE_FILTER": "thesis,report",
+                    "ZOTERO_COLLECTION_FILTER": "XYZ12345",
+                    "ZOTERO_TAG_FILTER": "career,engagement",
+                    "ZOTERO_TAG_MATCH_MODE": "any",
                 },
                 clear=False,
             ):
@@ -117,6 +129,10 @@ class TestZotGrepConfig(unittest.TestCase):
 
         self.assertEqual(config.base_attachment_path, attachments_dir)
         self.assertEqual(config.max_results_stage1, 77)
+        self.assertEqual(config.item_type_filter, ["thesis", "report"])
+        self.assertEqual(config.collection_filter, "XYZ12345")
+        self.assertEqual(config.tag_filter, ["career", "engagement"])
+        self.assertEqual(config.tag_match_mode, "any")
         self.assertEqual(resolved_path, os.path.abspath(config_path))
 
     def test_non_local_api_flags_from_file_are_ignored(self):
@@ -141,3 +157,7 @@ class TestZotGrepConfig(unittest.TestCase):
             config = load_config_from_env()
 
         self.assertTrue(config.use_local_api)
+
+    def test_tag_match_mode_must_be_supported(self):
+        with self.assertRaisesRegex(ValueError, "tag_match_mode"):
+            ZotGrepConfig(tag_match_mode="unsupported")

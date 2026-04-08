@@ -1,7 +1,42 @@
 import unittest
+import sys
+import types
 from unittest.mock import patch
 
-from zotgrep.text_analyzer import TextAnalyzer
+
+def _install_dependency_stubs():
+    if "pyzotero" not in sys.modules:
+        pyzotero_module = types.ModuleType("pyzotero")
+        zotero_module = types.ModuleType("zotero")
+
+        class DummyZotero:
+            pass
+
+        zotero_module.Zotero = DummyZotero
+        pyzotero_module.zotero = zotero_module
+        sys.modules["pyzotero"] = pyzotero_module
+        sys.modules["pyzotero.zotero"] = zotero_module
+
+    if "pypdfium2" not in sys.modules:
+        pdfium_module = types.ModuleType("pypdfium2")
+
+        class PdfDocument:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            def __iter__(self):
+                return iter([])
+
+            def close(self):
+                return None
+
+        pdfium_module.PdfDocument = PdfDocument
+        sys.modules["pypdfium2"] = pdfium_module
+
+
+_install_dependency_stubs()
+
+from zotgrep.text_analyzer import TextAnalyzer, parse_full_text_query
 
 
 class FakePysbdModule:
@@ -30,6 +65,34 @@ class FakePysbdModule:
 
 
 class TestTextAnalyzer(unittest.TestCase):
+    def test_parse_full_text_query_treats_commas_as_or(self):
+        query = parse_full_text_query("alpha, beta")
+
+        self.assertEqual(query.leaf_terms, ["alpha", "beta"])
+        self.assertEqual(query.matching_terms("alpha beta"), ["alpha", "beta"])
+
+    def test_parse_full_text_query_gives_and_higher_precedence_than_or(self):
+        query = parse_full_text_query("alpha AND beta OR gamma")
+
+        self.assertEqual(query.leaf_terms, ["alpha", "beta", "gamma"])
+        self.assertEqual(query.matching_terms("alpha beta"), ["alpha", "beta"])
+        self.assertEqual(query.matching_terms("gamma only"), ["gamma"])
+        self.assertEqual(query.matching_terms("alpha only"), [])
+
+    def test_parse_full_text_query_keeps_quoted_phrase_as_single_leaf(self):
+        query = parse_full_text_query('"two part"')
+
+        self.assertEqual(query.leaf_terms, ["two part"])
+        self.assertEqual(query.matching_terms("A two part model."), ["two part"])
+
+    def test_parse_full_text_query_rejects_parentheses(self):
+        with self.assertRaisesRegex(ValueError, "Parentheses are not supported"):
+            parse_full_text_query("(alpha OR beta)")
+
+    def test_parse_full_text_query_rejects_dangling_operator(self):
+        with self.assertRaisesRegex(ValueError, "cannot end with an operator"):
+            parse_full_text_query("alpha AND")
+
     def test_tokenize_sentences_returns_empty_list_for_blank_input(self):
         analyzer = TextAnalyzer()
 
@@ -111,7 +174,7 @@ class TestTextAnalyzer(unittest.TestCase):
             ],
         ), patch.object(analyzer, "_page_looks_noisy", return_value=False):
             contexts = analyzer.build_page_contexts(
-                "ignored",
+                "Alpha is in the first sentence. Beta appears in the second sentence.",
                 ["Alpha", "Beta"],
                 language="en",
             )
@@ -154,6 +217,45 @@ class TestTextAnalyzer(unittest.TestCase):
         self.assertEqual(contexts[0]["terms_found"], ["target"])
         self.assertIn("***", analyzer.highlight_multiple_terms(contexts[0]["context_text_unhighlighted"], ["target"]))
         self.assertIn("target", contexts[0]["context_text_unhighlighted"])
+
+    def test_build_page_contexts_supports_unquoted_phrase_queries(self):
+        analyzer = TextAnalyzer()
+        text = "The two part model was retained. A later sentence does not matter."
+
+        contexts = analyzer.build_page_contexts(text, parse_full_text_query("two part"), language="en")
+
+        self.assertEqual(len(contexts), 1)
+        self.assertEqual(contexts[0]["terms_found"], ["two part"])
+
+    def test_build_page_contexts_supports_wildcard_queries(self):
+        analyzer = TextAnalyzer()
+        text = "Adolescent development differs from adolescent outcomes."
+
+        contexts = analyzer.build_page_contexts(text, parse_full_text_query("adolescen*"), language="en")
+
+        self.assertEqual(len(contexts), 1)
+        self.assertEqual(contexts[0]["terms_found"], ["adolescen*"])
+
+    def test_build_page_contexts_requires_same_page_for_and_queries(self):
+        analyzer = TextAnalyzer()
+        query = parse_full_text_query("alpha AND beta")
+
+        self.assertEqual(analyzer.build_page_contexts("alpha only", query, language="en"), [])
+        contexts = analyzer.build_page_contexts("alpha and beta both appear here", query, language="en")
+        self.assertEqual(len(contexts), 1)
+        self.assertEqual(contexts[0]["terms_found"], ["alpha", "beta"])
+
+    def test_highlight_multiple_terms_uses_compiled_query_patterns(self):
+        analyzer = TextAnalyzer()
+        query = parse_full_text_query("adolescen*")
+
+        highlighted = analyzer.highlight_multiple_terms(
+            "Adolescents were sampled.",
+            ["adolescen*"],
+            query=query,
+        )
+
+        self.assertIn("***Adolescents***", highlighted)
 
 
 if __name__ == "__main__":

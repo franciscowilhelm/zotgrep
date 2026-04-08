@@ -96,4 +96,119 @@ class TestWebSettings(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertNotIn('name="use_local_api"', html)
-        self.assertIn("always uses Zotero&#39;s local API", html)
+        self.assertIn("always uses Zotero's local API", html)
+
+    def test_search_page_rejects_invalid_fulltext_query(self):
+        app = create_app()
+        client = app.test_client()
+
+        response = client.post(
+            "/search",
+            data={
+                "zotero_query": "alpha",
+                "fulltext_terms": "(beta OR gamma)",
+                "include_abstract": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("Invalid full-text query", html)
+
+    def test_search_page_hides_advanced_settings_by_default(self):
+        app = create_app()
+        client = app.test_client()
+
+        response = client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("<summary>Advanced Search Settings</summary>", html)
+        self.assertNotIn('details class="advanced-search" open', html)
+
+    @patch("zotgrep.web.ZoteroSearchEngine")
+    def test_search_page_shows_metadata_operator_warning(self, mock_engine):
+        mock_engine_instance = mock_engine.return_value
+        mock_engine_instance.connect_to_zotero.return_value = True
+        mock_engine_instance.search_zotero_and_full_text.return_value = []
+        mock_engine_instance.get_search_summary.return_value = "No results found."
+        mock_engine_instance.warnings = []
+
+        app = create_app()
+        client = app.test_client()
+
+        response = client.post(
+            "/search",
+            data={
+                "zotero_query": "alpha AND beta",
+                "fulltext_terms": "gamma",
+                "include_abstract": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("Metadata search still uses Zotero quick-search semantics", html)
+
+    def test_search_page_preserves_filter_values_on_fulltext_validation_error(self):
+        app = create_app()
+        client = app.test_client()
+
+        response = client.post(
+            "/search",
+            data={
+                "zotero_query": "alpha",
+                "fulltext_terms": "(beta OR gamma)",
+                "item_type_filter": "journalArticle, book",
+                "collection_filter": "Focused Review",
+                "tag_filter": "alpha, beta",
+                "tag_match_mode": "any",
+                "include_abstract": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('value="journalArticle, book"', html)
+        self.assertIn('value="Focused Review"', html)
+        self.assertIn('value="alpha, beta"', html)
+        self.assertIn('<option value="any" selected>', html)
+        self.assertIn('details class="advanced-search" open', html)
+
+    @patch("zotgrep.web.ZoteroSearchEngine")
+    def test_search_page_applies_metadata_filters_to_config(self, mock_engine):
+        mock_engine_instance = mock_engine.return_value
+        mock_engine_instance.connect_to_zotero.return_value = True
+        mock_engine_instance.search_zotero_and_full_text.return_value = []
+        mock_engine_instance.get_search_summary.return_value = "No results found."
+        mock_engine_instance.get_metadata_filters_for_output.return_value = {
+            "item_types": ["journalArticle"],
+            "collection": {"input": "Focused Review", "key": "ABCD1234", "name": "Focused Review"},
+            "tags": ["alpha", "beta"],
+            "tag_match_mode": "any",
+            "publication_titles": [],
+        }
+        mock_engine_instance.warnings = []
+
+        app = create_app()
+        client = app.test_client()
+
+        response = client.post(
+            "/search",
+            data={
+                "zotero_query": "alpha",
+                "fulltext_terms": "gamma",
+                "item_type_filter": "journalArticle",
+                "collection_filter": "Focused Review",
+                "tag_filter": "alpha, beta",
+                "tag_match_mode": "any",
+                "include_abstract": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        passed_config = mock_engine.call_args.args[0]
+        self.assertEqual(passed_config.item_type_filter, ["journalArticle"])
+        self.assertEqual(passed_config.collection_filter, "Focused Review")
+        self.assertEqual(passed_config.tag_filter, ["alpha", "beta"])
+        self.assertEqual(passed_config.tag_match_mode, "any")

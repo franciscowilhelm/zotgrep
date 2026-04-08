@@ -12,6 +12,8 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 import re
 
+from .text_analyzer import compile_full_text_term_pattern
+
 
 class ResultHandler:
     """Handles search results formatting and export."""
@@ -329,6 +331,7 @@ class ResultHandler:
         include_abstract: bool = True,
         context_window: Optional[int] = None,
         search_timestamp: Optional[str] = None,
+        metadata_filters: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Build the structured representation used for JSON and Markdown frontmatter.
@@ -360,6 +363,7 @@ class ResultHandler:
             'search_details': {
                 'zotero_query': zotero_query or "",
                 'full_text_query': full_text_query or [],
+                'metadata_filters': metadata_filters or {},
                 'search_mode': 'fulltext' if has_full_text_results else 'metadata_only',
                 'search_timestamp': search_timestamp,
                 'context_window': context_window if context_window is not None else "",
@@ -380,6 +384,7 @@ class ResultHandler:
         include_abstract: bool = True,
         context_window: Optional[int] = None,
         search_timestamp: Optional[str] = None,
+        metadata_filters: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Save search results to a structured JSON file.
@@ -396,6 +401,7 @@ class ResultHandler:
                 include_abstract=include_abstract,
                 context_window=context_window,
                 search_timestamp=search_timestamp,
+                metadata_filters=metadata_filters,
             )
 
             with open(filename, 'w', encoding='utf-8') as jsonfile:
@@ -414,6 +420,7 @@ class ResultHandler:
         include_abstract: bool = True,
         context_window: Optional[int] = None,
         search_timestamp: Optional[str] = None,
+        metadata_filters: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Save search results to a Markdown file with a single YAML frontmatter and a human-friendly body.
@@ -439,6 +446,7 @@ class ResultHandler:
                 include_abstract=include_abstract,
                 context_window=context_window,
                 search_timestamp=search_timestamp,
+                metadata_filters=metadata_filters,
             )
             papers = payload['papers']
             search_details = payload['search_details']
@@ -714,9 +722,10 @@ class ResultHandler:
 
         # Prefer longer terms first to avoid partial matches.
         terms_sorted = sorted(terms, key=len, reverse=True)
-        pattern = re.compile("|".join(re.escape(t) for t in terms_sorted), re.IGNORECASE)
-
-        return pattern.sub(lambda m: f"**{m.group(0)}**", text)
+        for term in terms_sorted:
+            pattern = compile_full_text_term_pattern(term)
+            text = pattern.sub(lambda m: f"**{m.group(0)}**", text)
+        return text
 
     def _parse_terms_found(self, terms_found: str) -> List[str]:
         """
@@ -885,6 +894,7 @@ def save_results_to_json(
     include_abstract: bool = True,
     context_window: Optional[int] = None,
     search_timestamp: Optional[str] = None,
+    metadata_filters: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Save results to JSON (backward compatibility function)."""
     handler = ResultHandler()
@@ -896,6 +906,7 @@ def save_results_to_json(
         include_abstract=include_abstract,
         context_window=context_window,
         search_timestamp=search_timestamp,
+        metadata_filters=metadata_filters,
     )
 
 
@@ -907,6 +918,7 @@ def save_results_to_markdown(
     include_abstract: bool = True,
     context_window: Optional[int] = None,
     search_timestamp: Optional[str] = None,
+    metadata_filters: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Save results to Markdown (backward compatibility function)."""
     handler = ResultHandler()
@@ -918,6 +930,7 @@ def save_results_to_markdown(
         include_abstract=include_abstract,
         context_window=context_window,
         search_timestamp=search_timestamp,
+        metadata_filters=metadata_filters,
     )
 
 
