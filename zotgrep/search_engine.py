@@ -231,7 +231,12 @@ class ZoteroSearchEngine:
         Returns:
             List of Zotero items
         """
-        print(f"--- Stage 1: Searching Zotero metadata for: '{search_terms}' ---")
+        mode_label = (
+            "everything (title, author, year + indexed content)"
+            if self.config.metadata_search_mode == "everything"
+            else "title, author & year"
+        )
+        print(f"--- Stage 1: Searching Zotero metadata for: '{search_terms}' [{mode_label}] ---")
         filters = self._normalize_metadata_filters()
 
         try:
@@ -272,6 +277,7 @@ class ZoteroSearchEngine:
         kwargs: Dict[str, Any] = {
             "q": search_terms,
             "limit": self.config.max_results_stage1,
+            "qmode": self.config.metadata_search_mode,
         }
 
         single_item_type = filters.item_types[0] if len(filters.item_types) == 1 else None

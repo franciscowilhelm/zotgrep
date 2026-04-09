@@ -104,6 +104,18 @@ Examples:
         )
 
         parser.add_argument(
+            '--search-mode',
+            type=str,
+            choices=['titleCreatorYear', 'everything'],
+            dest='search_mode',
+            help=(
+                'Zotero metadata search scope. '
+                '"titleCreatorYear" (default) searches title, author, and year. '
+                '"everything" also searches Zotero\'s indexed attachment content.'
+            )
+        )
+
+        parser.add_argument(
             '--debug-publication',
             action='store_true',
             help='Print publication titles of matched items before filtering'
@@ -288,7 +300,10 @@ Examples:
 
         if args.tag_match is not None:
             config.tag_match_mode = args.tag_match
-        
+
+        if args.search_mode is not None:
+            config.metadata_search_mode = args.search_mode
+
         return config
     
     def handle_output(

@@ -37,6 +37,11 @@ class ZotGrepConfig:
     tag_filter: Optional[List[str]] = None
     tag_match_mode: str = "all"
 
+    # Metadata search mode: controls Zotero API qmode parameter.
+    # "titleCreatorYear" searches title, author, and year fields (default).
+    # "everything" also searches Zotero's indexed attachment content.
+    metadata_search_mode: str = "titleCreatorYear"
+
     # Internal compatibility flag. ZotGrep only supports the local Zotero API.
     use_local_api: bool = True
 
@@ -87,6 +92,11 @@ class ZotGrepConfig:
         if self.tag_match_mode not in {"all", "any"}:
             raise ValueError("tag_match_mode must be either 'all' or 'any'")
 
+        if self.metadata_search_mode not in {"titleCreatorYear", "everything"}:
+            raise ValueError(
+                "metadata_search_mode must be either 'titleCreatorYear' or 'everything'"
+            )
+
 
 def get_user_config_path(config_path: Optional[str] = None) -> str:
     """Resolve the on-disk path for the user config file."""
@@ -136,6 +146,7 @@ def create_default_config() -> ZotGrepConfig:
         collection_filter=None,
         tag_filter=None,
         tag_match_mode="all",
+        metadata_search_mode="titleCreatorYear",
         use_local_api=True,
     )
 
@@ -179,6 +190,8 @@ def print_config_info(config: ZotGrepConfig) -> None:
         print(f"Collection filter: {config.collection_filter}")
     if config.tag_filter:
         print(f"Tag filter ({config.tag_match_mode}): {', '.join(config.tag_filter)}")
+    if config.metadata_search_mode != "titleCreatorYear":
+        print(f"Metadata search mode: {config.metadata_search_mode}")
 
 
 def _parse_csv_env(value: str) -> Optional[List[str]]:
@@ -289,3 +302,7 @@ def _apply_env_overrides(config: ZotGrepConfig) -> None:
     tag_match_mode = os.getenv("ZOTERO_TAG_MATCH_MODE")
     if tag_match_mode is not None:
         config.tag_match_mode = tag_match_mode.strip().lower() or "all"
+
+    metadata_search_mode = os.getenv("ZOTERO_METADATA_SEARCH_MODE")
+    if metadata_search_mode is not None:
+        config.metadata_search_mode = metadata_search_mode.strip() or "titleCreatorYear"
