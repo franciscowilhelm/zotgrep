@@ -1,0 +1,161 @@
+{
+  "benchmark": {
+    "backends_compared": [
+      "pdf",
+      "zotero-index"
+    ],
+    "query_count": 5,
+    "totals": {
+      "pdf_total_seconds": 38.809,
+      "zotero_index_total_seconds": 60.994,
+      "overall_faster_backend": "pdf"
+    }
+  },
+  "queries": [
+    {
+      "label": "proactiv / diary",
+      "metadata_query": "proactiv",
+      "fulltext_query": "diary",
+      "pdf": {
+        "match_count": 104,
+        "duration_seconds": 7.87,
+        "error": null
+      },
+      "zotero_index": {
+        "match_count": 86,
+        "duration_seconds": 11.069,
+        "error": null
+      },
+      "coverage_diff": {
+        "only_in_pdf": [],
+        "only_in_zotero_index": [],
+        "shared": [
+          ""
+        ],
+        "pdf_unique_count": 0,
+        "index_unique_count": 0,
+        "shared_count": 1
+      },
+      "speed_diff": {
+        "faster_backend": "pdf",
+        "speedup_seconds": 3.199
+      }
+    },
+    {
+      "label": "proactiv / daily",
+      "metadata_query": "proactiv",
+      "fulltext_query": "daily",
+      "pdf": {
+        "match_count": 352,
+        "duration_seconds": 9.219,
+        "error": null
+      },
+      "zotero_index": {
+        "match_count": 333,
+        "duration_seconds": 19.137,
+        "error": null
+      },
+      "coverage_diff": {
+        "only_in_pdf": [],
+        "only_in_zotero_index": [],
+        "shared": [
+          ""
+        ],
+        "pdf_unique_count": 0,
+        "index_unique_count": 0,
+        "shared_count": 1
+      },
+      "speed_diff": {
+        "faster_backend": "pdf",
+        "speedup_seconds": 9.918
+      }
+    },
+    {
+      "label": "proactiv / barriers",
+      "metadata_query": "proactiv",
+      "fulltext_query": "barriers",
+      "pdf": {
+        "match_count": 81,
+        "duration_seconds": 7.553,
+        "error": null
+      },
+      "zotero_index": {
+        "match_count": 60,
+        "duration_seconds": 12.722,
+        "error": null
+      },
+      "coverage_diff": {
+        "only_in_pdf": [],
+        "only_in_zotero_index": [],
+        "shared": [
+          ""
+        ],
+        "pdf_unique_count": 0,
+        "index_unique_count": 0,
+        "shared_count": 1
+      },
+      "speed_diff": {
+        "faster_backend": "pdf",
+        "speedup_seconds": 5.169
+      }
+    },
+    {
+      "label": "proactiv / cross-lagged",
+      "metadata_query": "proactiv",
+      "fulltext_query": "cross-lagged",
+      "pdf": {
+        "match_count": 27,
+        "duration_seconds": 7.141,
+        "error": null
+      },
+      "zotero_index": {
+        "match_count": 27,
+        "duration_seconds": 10.21,
+        "error": null
+      },
+      "coverage_diff": {
+        "only_in_pdf": [],
+        "only_in_zotero_index": [],
+        "shared": [
+          ""
+        ],
+        "pdf_unique_count": 0,
+        "index_unique_count": 0,
+        "shared_count": 1
+      },
+      "speed_diff": {
+        "faster_backend": "pdf",
+        "speedup_seconds": 3.069
+      }
+    },
+    {
+      "label": "proactiv / time perspective",
+      "metadata_query": "proactiv",
+      "fulltext_query": "time perspective",
+      "pdf": {
+        "match_count": 42,
+        "duration_seconds": 7.026,
+        "error": null
+      },
+      "zotero_index": {
+        "match_count": 27,
+        "duration_seconds": 7.856,
+        "error": null
+      },
+      "coverage_diff": {
+        "only_in_pdf": [],
+        "only_in_zotero_index": [],
+        "shared": [
+          ""
+        ],
+        "pdf_unique_count": 0,
+        "index_unique_count": 0,
+        "shared_count": 1
+      },
+      "speed_diff": {
+        "faster_backend": "pdf",
+        "speedup_seconds": 0.83
+      }
+    }
+  ]
+}

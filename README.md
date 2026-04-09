@@ -2,19 +2,18 @@
 
 ZotGrep is a Python package that enables users to search their local Zotero library using the API and then search for full-text content within PDFs. It includes multiple output formats (CSV and Markdown) and Zotero URL integration for direct access to search results.
 
-Credits: ZotGrep builds on [pyzotero](https://github.com/urschrei/pyzotero) by Stephan Hugel.
-
-Disclaimer: The project was largely vibe-coded using Claude and ChatGPT.
-
-The package was originally designed around ZotMoov and a linked file structure, where PDFs sit in a linked folder (e.g., OneDrive) rather than in the Zotero library folder. It now also works with Zotero-stored PDF attachments by downloading the attachment bytes via `pyzotero`.
-
 The general workflow involves a) including search terms for references in the Zotero library, b) full-text search among the results for a new set of keywords. The output will contain all hits among the references. 
+
+Credits: ZotGrep builds on the excellent [pyzotero](https://github.com/urschrei/pyzotero) by Stephan Hugel.
+
+Disclaimer: The project includes substantial parts that were vibe-coded using Claude and ChatGPT.
 
 ## Features
 
 ### Core Functionality
 - Search Zotero library metadata (titles, authors, etc.)
 - Full-text search within PDF attachments (both linked and imported files)
+- Easy-to-use web interface and advanced command line interface for power users and AI agents.
 - Support for both local linked files and Zotero-stored PDFs
 - Context-aware text extraction with highlighted search terms
 - **Multiple Output Formats**: Save search results to CSV or Markdown files
@@ -498,6 +497,31 @@ export ZOTERO_COLLECTION_FILTER='Focused Review'
 export ZOTERO_TAG_FILTER='privacy,fairness'
 export ZOTERO_TAG_MATCH_MODE='any'
 ```
+
+### Full-text backend comparison: pypdfium2 vs. Zotero index (xpdf)
+
+ZotGrep offers two Stage 2 full-text backends, selectable with `--fulltext-source` (only in the CLI, the web interface always uses `pdf`):
+
+- **`pdf`** (default) — ZotGrep downloads each PDF attachment and extracts text with **pypdfium2**. Provides page-level results and context windows.
+- **`zotero-index`** (experimental) — ZotGrep queries the **full-text index that Zotero itself maintains** (built internally using xpdf). No download is required, but page-level information is unavailable and not all attachments may be indexed.
+
+The table below shows results across five searches against the same Zotero library (`--zotero proactiv`, metadata search mode: `titleCreatorYear`). *Hits* = total annotation matches returned (context windows, not unique papers).
+
+| Full-text query | pypdfium2 hits | Zotero index hits | Hit Δ | pypdfium2 time | Zotero index time | Speed Δ |
+|---|---:|---:|---:|---:|---:|---:|
+| `diary` | 104 | 86 | **+18** | 7.9 s | 11.1 s | **−3.2 s** |
+| `daily` | 352 | 333 | **+19** | 9.2 s | 19.1 s | **−9.9 s** |
+| `barriers` | 81 | 60 | **+21** | 7.6 s | 12.7 s | **−5.2 s** |
+| `cross-lagged` | 27 | 27 | 0 | 7.1 s | 10.2 s | **−3.1 s** |
+| `time perspective` | 42 | 27 | **+15** | 7.0 s | 7.9 s | **−0.8 s** |
+| **Total** | **606** | **533** | **+73** | **38.8 s** | **61.0 s** | **−22.2 s** |
+
+**Takeaways:**
+
+- pypdfium2 found 12–37% more hits per query in four out of five cases, likely because Zotero's index does not cover all pages or all attachments or misses hits due to poorer PDF processing.
+- pypdfium2 was faster in every query, and significantly so for high-hit queries (`daily`: 2× faster). The overhead of downloading and parsing PDFs is more than offset by avoiding sequential index API calls.
+
+Use `zotero-index` only if you cannot access the PDF files directly. For all other cases the default `pdf` backend gives better coverage and lower latency.
 
 ### Testing
 
