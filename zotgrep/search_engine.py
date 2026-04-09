@@ -488,8 +488,11 @@ class ZoteroSearchEngine:
                 continue
             
             if not found_text_in_item:
+                source_label = (
+                    "Zotero index" if self.config.fulltext_source == "zotero-index" else "PDF(s)"
+                )
                 print(
-                    f"  --- Stage 2: Searching PDF(s) for '{item_title}' for: "
+                    f"  --- Stage 2: Searching {source_label} for '{item_title}' for: "
                     f"'{', '.join(full_text_query.leaf_terms)}' ---"
                 )
                 found_text_in_item = True
@@ -515,19 +518,47 @@ class ZoteroSearchEngine:
         
         return findings, summary_lines
     
+    def _extract_text_from_zotero_index(self, pdf_key: str) -> Optional[Dict[int, str]]:
+        """
+        Fetch pre-indexed text from the Zotero API via fulltext_item().
+
+        Returns a single-entry dict keyed on 0 (no page-level information is
+        available from the Zotero index). Returns None if the index has no
+        content for this attachment.
+        """
+        try:
+            data = self.zot_conn.fulltext_item(pdf_key)
+        except Exception as e:
+            print(f"    Error fetching Zotero index for {pdf_key}: {e}")
+            return None
+
+        content = data.get("content", "")
+        if not content or not content.strip():
+            print(f"    Zotero index has no content for attachment {pdf_key}.")
+            return None
+
+        indexed_pages = data.get("indexedPages", "?")
+        total_pages = data.get("totalPages", "?")
+        print(f"    Zotero index: {indexed_pages}/{total_pages} pages indexed for {pdf_key}.")
+        # Page key 0 signals "no page information available".
+        return {0: content}
+
     def _extract_pdf_text(self, pdf_info: Dict[str, str], item_title: str) -> Optional[Dict[int, str]]:
         """
         Extract text from PDF based on its type (linked or imported).
-        
+
         Args:
             pdf_info: PDF information dictionary
             item_title: Title of the parent item
-            
+
         Returns:
             Dictionary mapping page numbers to text, or None if extraction fails
         """
+        if self.config.fulltext_source == "zotero-index":
+            return self._extract_text_from_zotero_index(pdf_info['key'])
+
         link_mode = pdf_info['link_mode']
-        
+
         if link_mode == 'linked_file':
             if not pdf_info['path']:
                 return None

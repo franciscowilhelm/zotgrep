@@ -42,6 +42,12 @@ class ZotGrepConfig:
     # "everything" also searches Zotero's indexed attachment content.
     metadata_search_mode: str = "titleCreatorYear"
 
+    # Fulltext extraction source for Stage 2.
+    # "pdf" (default): download and extract text from the PDF file.
+    # "zotero-index": fetch pre-indexed text via pyzotero fulltext_item() — experimental.
+    #   No page-level information is available in this mode; all hits are reported on page 0.
+    fulltext_source: str = "pdf"
+
     # Internal compatibility flag. ZotGrep only supports the local Zotero API.
     use_local_api: bool = True
 
@@ -97,6 +103,9 @@ class ZotGrepConfig:
                 "metadata_search_mode must be either 'titleCreatorYear' or 'everything'"
             )
 
+        if self.fulltext_source not in {"pdf", "zotero-index"}:
+            raise ValueError("fulltext_source must be either 'pdf' or 'zotero-index'")
+
 
 def get_user_config_path(config_path: Optional[str] = None) -> str:
     """Resolve the on-disk path for the user config file."""
@@ -147,6 +156,7 @@ def create_default_config() -> ZotGrepConfig:
         tag_filter=None,
         tag_match_mode="all",
         metadata_search_mode="titleCreatorYear",
+        fulltext_source="pdf",
         use_local_api=True,
     )
 
@@ -192,6 +202,8 @@ def print_config_info(config: ZotGrepConfig) -> None:
         print(f"Tag filter ({config.tag_match_mode}): {', '.join(config.tag_filter)}")
     if config.metadata_search_mode != "titleCreatorYear":
         print(f"Metadata search mode: {config.metadata_search_mode}")
+    if config.fulltext_source != "pdf":
+        print(f"Fulltext source: {config.fulltext_source} (experimental)")
 
 
 def _parse_csv_env(value: str) -> Optional[List[str]]:
@@ -306,3 +318,7 @@ def _apply_env_overrides(config: ZotGrepConfig) -> None:
     metadata_search_mode = os.getenv("ZOTERO_METADATA_SEARCH_MODE")
     if metadata_search_mode is not None:
         config.metadata_search_mode = metadata_search_mode.strip() or "titleCreatorYear"
+
+    fulltext_source = os.getenv("ZOTERO_FULLTEXT_SOURCE")
+    if fulltext_source is not None:
+        config.fulltext_source = fulltext_source.strip() or "pdf"

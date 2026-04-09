@@ -116,6 +116,19 @@ Examples:
         )
 
         parser.add_argument(
+            '--fulltext-source',
+            type=str,
+            choices=['pdf', 'zotero-index'],
+            dest='fulltext_source',
+            help=(
+                'Source for Stage 2 full-text extraction. '
+                '"pdf" (default): download and extract text from the PDF file. '
+                '"zotero-index" (experimental): use text pre-indexed by Zotero via '
+                'fulltext_item() — faster but no page-level information.'
+            )
+        )
+
+        parser.add_argument(
             '--debug-publication',
             action='store_true',
             help='Print publication titles of matched items before filtering'
@@ -303,6 +316,9 @@ Examples:
 
         if args.search_mode is not None:
             config.metadata_search_mode = args.search_mode
+
+        if args.fulltext_source is not None:
+            config.fulltext_source = args.fulltext_source
 
         return config
     
