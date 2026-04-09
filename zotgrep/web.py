@@ -53,6 +53,7 @@ def _build_search_form(config: ZotGrepConfig) -> Dict[str, Any]:
         "collection_filter": config.collection_filter or "",
         "tag_filter": ", ".join(config.tag_filter or []),
         "tag_match_mode": config.tag_match_mode,
+        "metadata_search_mode": config.metadata_search_mode,
         "max_results": config.max_results_stage1,
         "context_window": config.context_sentence_window,
     }
@@ -208,6 +209,11 @@ def create_app() -> Flask:
         tag_match_mode = request.form.get("tag_match_mode", config.tag_match_mode).strip().lower() or "all"
         if tag_match_mode not in {"all", "any"}:
             tag_match_mode = "all"
+        metadata_search_mode = request.form.get(
+            "metadata_search_mode", config.metadata_search_mode
+        ).strip()
+        if metadata_search_mode not in {"titleCreatorYear", "everything"}:
+            metadata_search_mode = "titleCreatorYear"
         max_results = request.form.get("max_results", str(config.max_results_stage1))
         context_window = request.form.get(
             "context_window",
@@ -224,6 +230,7 @@ def create_app() -> Flask:
             "collection_filter": collection_filter,
             "tag_filter": tag_filter,
             "tag_match_mode": tag_match_mode,
+            "metadata_search_mode": metadata_search_mode,
             "max_results": max_results,
             "context_window": context_window,
         }
@@ -263,6 +270,7 @@ def create_app() -> Flask:
             if value.strip()
         ] or None
         config.tag_match_mode = tag_match_mode
+        config.metadata_search_mode = metadata_search_mode
 
         warnings: list[str] = []
         if metadata_query_uses_unsupported_operators(zotero_query):
@@ -1053,6 +1061,15 @@ SEARCH_CONTENT_TEMPLATE = r"""
     </div>
 
     <div class="form-group">
+      <label for="metadata_search_mode">Metadata Search Scope</label>
+      <select id="metadata_search_mode" name="metadata_search_mode">
+        <option value="titleCreatorYear" {{ 'selected' if form.get('metadata_search_mode', 'titleCreatorYear') == 'titleCreatorYear' else '' }}>Title, Author &amp; Year</option>
+        <option value="everything" {{ 'selected' if form.get('metadata_search_mode') == 'everything' else '' }}>Everything (including Zotero-indexed content)</option>
+      </select>
+      <small>&#8220;Everything&#8221; searches Zotero&#8217;s indexed attachment text in addition to metadata fields.</small>
+    </div>
+
+    <div class="form-group">
       <label for="fulltext_terms">Full-Text Search Terms</label>
       <input type="text" id="fulltext_terms" name="fulltext_terms"
              value="{{ form.get('fulltext_terms', '') }}"
@@ -1071,6 +1088,7 @@ SEARCH_CONTENT_TEMPLATE = r"""
       (form.get('max_results', config.max_results_stage1)|string) != (config.max_results_stage1|string) or
       (form.get('context_window', config.context_sentence_window)|string) != (config.context_sentence_window|string)
     %}
+    {# metadata_search_mode is shown outside Advanced, so no need to force-open Advanced for it #}
     <details class="advanced-search" {{ 'open' if advanced_open else '' }}>
       <summary>Advanced Search Settings</summary>
       <div class="advanced-search-body">
