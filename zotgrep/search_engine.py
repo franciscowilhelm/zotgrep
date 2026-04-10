@@ -253,6 +253,21 @@ class ZoteroSearchEngine:
                 resolved_collection,
             )
 
+            if len(items) >= self.config.max_results_stage1:
+                cli_warning = (
+                    f"Metadata search returned {len(items)} results, which equals the current "
+                    f"limit of {self.config.max_results_stage1}. Some matching references may "
+                    f"have been omitted. Consider raising --max-results or narrowing your query."
+                )
+                web_warning = (
+                    f"Metadata search returned {len(items)} results, which equals the current "
+                    f"limit of {self.config.max_results_stage1}. Some matching references may "
+                    f"have been omitted. Consider raising the Max Results limit in Advanced Search Settings "
+                    f"or narrowing your query."
+                )
+                self.warnings.append(web_warning)
+                print(f"  Warning: {cli_warning}")
+
             items = self._filter_items_by_item_type(items, filters.item_types)
             items = self._filter_items_by_tags(items, filters.tags, filters.tag_match_mode)
             items = self._filter_items_by_publication_title(items)

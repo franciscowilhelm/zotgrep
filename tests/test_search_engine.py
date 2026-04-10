@@ -133,7 +133,12 @@ class TestZoteroSearchEngine(unittest.TestCase):
         items = engine._search_metadata("alpha")
 
         self.assertEqual(len(items), 1)
-        engine.zot_conn.items.assert_called_once_with(q="alpha", itemType="-attachment", limit=100)
+        engine.zot_conn.items.assert_called_once_with(
+            q="alpha",
+            itemType="-attachment",
+            limit=100,
+            qmode="titleCreatorYear",
+        )
         engine.zot_conn.top.assert_not_called()
         engine.zot_conn.collection_items_top.assert_not_called()
 
@@ -152,6 +157,7 @@ class TestZoteroSearchEngine(unittest.TestCase):
         engine.zot_conn.top.assert_called_once_with(
             q="alpha",
             limit=100,
+            qmode="titleCreatorYear",
             itemType="journalArticle",
         )
         engine.zot_conn.items.assert_not_called()
@@ -176,6 +182,7 @@ class TestZoteroSearchEngine(unittest.TestCase):
             "ABCD1234",
             q="alpha",
             limit=100,
+            qmode="titleCreatorYear",
         )
         engine.zot_conn.items.assert_not_called()
 
@@ -202,6 +209,7 @@ class TestZoteroSearchEngine(unittest.TestCase):
             "ABCD1234",
             q="alpha",
             limit=100,
+            qmode="titleCreatorYear",
             itemType="journalArticle",
         )
 

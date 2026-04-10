@@ -26,19 +26,36 @@ Disclaimer: The project includes substantial parts that were vibe-coded using Cl
 
 ## Installation
 
-### Install with uv
+### Install from PyPI
+
+For most users, install ZotGrep from PyPI and run it as a CLI tool:
+
 ```bash
+uv tool install zotgrep
+```
+
+Then launch it with:
+
+```bash
+zotgrep --help
+```
+
+If you want to use ZotGrep as a dependency inside another `uv`-managed project instead of as a global tool:
+
+```bash
+uv add zotgrep
+```
+
+### Install from a source checkout
+
+If you are developing ZotGrep or want to run the local repository in editable mode:
+
+```bash
+git clone https://github.com/franciscowilhelm/zotgrep.git
+cd zotgrep
 uv venv .venv
 source .venv/bin/activate
 uv pip install -e .
-```
-
-This installs the project locally in editable mode and exposes the `zotgrep` shell command.
-
-If you want to install it as a uv-managed tool instead of inside a project virtual environment:
-
-```bash
-uv tool install .
 ```
 
 ## Usage
@@ -527,11 +544,7 @@ Use `zotero-index` only if you cannot access the PDF files directly. For all oth
 
 Run the test suite to verify functionality:
 ```bash
-pytest
-```
-or
-```bash
-python -m unittest discover
+uv run --group test python -m pytest
 ```
 
 This will test:
@@ -540,7 +553,7 @@ This will test:
 - Sample data processing
 
 **Deprecation Notice:**
-Running `python test_zotgrep.py` is deprecated. Please use the package-based test suite in the `tests/` directory as shown above.
+Running `python test_zotgrep.py` is deprecated. Please use the package-based test suite in the `tests/` directory via the `uv run --group test python -m pytest` command shown above.
 
 ## License
 

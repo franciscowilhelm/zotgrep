@@ -12,6 +12,7 @@ from .config import ZotGrepConfig, get_config, print_config_info
 from .search_engine import ZoteroSearchEngine
 from .result_handler import ResultHandler
 from .text_analyzer import metadata_query_uses_unsupported_operators, parse_full_text_query
+from .version import get_runtime_version
 
 
 class ZotGrepCLI:
@@ -33,14 +34,14 @@ class ZotGrepCLI:
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
 Examples:
-  python main.py
-  python main.py --csv results.csv
-  python main.py --md results.md
-  python main.py --csv results.csv --csv-only
-  python main.py --markdown results.md --markdown-only
-  python main.py --zotero "machine learning health"
-  python main.py --zotero "machine learning health" --fulltext "algorithm, bias"
-  python main.py --zotero "AI ethics" --fulltext "privacy, fairness" --csv results.csv
+  zotgrep
+  zotgrep --csv results.csv
+  zotgrep --md results.md
+  zotgrep --csv results.csv --csv-only
+  zotgrep --markdown results.md --markdown-only
+  zotgrep --zotero "machine learning health"
+  zotgrep --zotero "machine learning health" --fulltext "algorithm, bias"
+  zotgrep --zotero "AI ethics" --fulltext "privacy, fairness" --csv results.csv
             """
         )
 
@@ -214,7 +215,7 @@ Examples:
         parser.add_argument(
             '--version',
             action='version',
-            version='ZotGrep 3.0.0'
+            version=f'ZotGrep {get_runtime_version()}'
         )
 
         return parser.parse_args()
@@ -314,11 +315,13 @@ Examples:
         if args.tag_match is not None:
             config.tag_match_mode = args.tag_match
 
-        if args.search_mode is not None:
-            config.metadata_search_mode = args.search_mode
+        search_mode = getattr(args, "search_mode", None)
+        if search_mode is not None:
+            config.metadata_search_mode = search_mode
 
-        if args.fulltext_source is not None:
-            config.fulltext_source = args.fulltext_source
+        fulltext_source = getattr(args, "fulltext_source", None)
+        if fulltext_source is not None:
+            config.fulltext_source = fulltext_source
 
         return config
     

@@ -23,6 +23,7 @@ from .config import (
 from .result_handler import ResultHandler
 from .search_engine import ZoteroSearchEngine
 from .text_analyzer import metadata_query_uses_unsupported_operators, parse_full_text_query
+from .version import get_runtime_version
 
 # Module-level storage for last search results (single-user localhost app)
 _last_search: Dict[str, Any] = {}
@@ -135,7 +136,7 @@ def _group_results_for_display(
 
 def _render_page(content_template: str, **context: Any) -> str:
     template = BASE_TEMPLATE.replace("__PAGE_CONTENT__", content_template)
-    return render_template_string(template, **context)
+    return render_template_string(template, app_version=get_runtime_version(), **context)
 
 
 def _render_search_page(
@@ -443,7 +444,7 @@ def create_app() -> Flask:
 
 
 BASE_TEMPLATE = r"""<!DOCTYPE html>
-<html lang="en" data-theme="latte">
+<html lang="en" data-theme="mocha">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -467,6 +468,8 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
     --overlay-bg: rgba(239,241,245,0.9);
     --header-accent: #1d3557;
     --btn-text: #f8fafc;
+    --advanced-bg: #dce0e8;
+    --placeholder: #8c8fa1;
   }
 
   [data-theme="solarized"] {
@@ -487,6 +490,8 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
     --overlay-bg: rgba(253,246,227,0.9);
     --header-accent: #005f73;
     --btn-text: #fdf6e3;
+    --advanced-bg: #ddd6c0;
+    --placeholder: #93a1a1;
   }
 
   [data-theme="mocha"] {
@@ -494,8 +499,8 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
     --card-bg: #313244;
     --input-bg: #45475a;
     --border: #585b70;
-    --primary: #f4a261;
-    --primary-hover: #e9c46a;
+    --primary: #cba6f7;
+    --primary-hover: #8839ef;
     --text: #e6edf3;
     --text-muted: #bac2de;
     --danger: #f38ba8;
@@ -505,8 +510,10 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
     --mark-bg: rgba(249,226,175,0.25);
     --context-bg: #45475a;
     --overlay-bg: rgba(30,30,46,0.9);
-    --header-accent: #f4a261;
+    --header-accent: #cba6f7;
     --btn-text: #1e1e2e;
+    --advanced-bg: #313244;
+    --placeholder: #7f849c;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -600,9 +607,9 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
   }
   .theme-switcher button:hover { transform: scale(1.12); }
   .theme-switcher button.active { border-color: var(--header-accent); transform: scale(1.12); }
+  .theme-switcher button[data-set-theme="mocha"] { background: linear-gradient(135deg, #1e1e2e 50%, #cba6f7 50%); }
   .theme-switcher button[data-set-theme="latte"] { background: linear-gradient(135deg, #eff1f5 50%, #1d3557 50%); }
   .theme-switcher button[data-set-theme="solarized"] { background: linear-gradient(135deg, #fdf6e3 50%, #005f73 50%); }
-  .theme-switcher button[data-set-theme="mocha"] { background: linear-gradient(135deg, #1e1e2e 50%, #f4a261 50%); }
 
   .panel {
     background: var(--card-bg);
@@ -883,12 +890,16 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
     color: var(--text-muted);
     margin-top: 0.4rem;
   }
+  ::placeholder {
+    color: var(--placeholder);
+    opacity: 1;
+  }
   details.advanced-search {
     margin-top: 1rem;
     margin-bottom: 1.25rem;
     border: 1px solid var(--border);
     border-radius: 14px;
-    background: color-mix(in srgb, var(--card-bg) 88%, white 12%);
+    background: var(--advanced-bg);
     padding: 0.2rem 1rem 0.9rem;
   }
   details.advanced-search summary {
@@ -953,7 +964,7 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
   <div class="container">
     <div class="header-left">
       <h1>ZotGrep</h1>
-      <span class="version">v3.0.0</span>
+      <span class="version">v{{ app_version }}</span>
     </div>
     <div class="header-right">
       <nav class="nav-links">
@@ -961,9 +972,9 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
         <a href="/settings" class="nav-link {{ 'active' if active_page == 'settings' else '' }}">General Settings</a>
       </nav>
       <div class="theme-switcher">
-        <button data-set-theme="latte" title="Latte" class="active"></button>
+        <button data-set-theme="mocha" title="Mocha" class="active"></button>
+        <button data-set-theme="latte" title="Latte"></button>
         <button data-set-theme="solarized" title="Solarized"></button>
-        <button data-set-theme="mocha" title="Mocha"></button>
       </div>
     </div>
   </div>
@@ -980,7 +991,7 @@ __PAGE_CONTENT__
 
 <script>
 (function() {
-  var saved = localStorage.getItem('zotgrep-theme') || 'latte';
+  var saved = localStorage.getItem('zotgrep-theme') || 'mocha';
   document.documentElement.setAttribute('data-theme', saved);
 
   var buttons = document.querySelectorAll('.theme-switcher button');

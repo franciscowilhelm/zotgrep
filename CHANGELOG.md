@@ -1,5 +1,28 @@
 # Changelog
 
+## 3.1.0 - 2026-04-10
+
+### Added
+
+- Structured full-text query parsing with support for explicit `AND` / `OR` semantics, quoted phrases, and validation of malformed queries.
+- Metadata search filters for publication title, item type, collection, and Zotero tags across the CLI, saved config, output metadata, and web search form.
+- `--search-mode {titleCreatorYear,everything}` plus a web `Metadata Search Scope` selector to control Zotero's Stage 1 `qmode` ("Title, Creator, Year" or "Everything").
+- Experimental CLI-only `--fulltext-source {pdf,zotero-index}` support for using Zotero's indexed attachment text instead of direct PDF extraction.
+- Research notes comparing the `pdf` and `zotero-index` Stage 2 backends for coverage and speed.
+
+### Changed
+
+- Sentence segmentation now uses `pySBD` instead of `nltk` to reduce dependency on a big package for a simple task.
+- PDF-vs-index backend behavior is documented more clearly, including the limitations of Zotero-index-based full-text search.
+- Test expectations now reflect the intended `qmode` parameter on Zotero metadata searches, and CLI config parsing remains resilient when helper callers provide partial `argparse.Namespace` objects.
+- Installation docs now treat PyPI as the primary distribution path, with source/editable installs documented separately for contributors.
+- Runtime version display for the CLI and web UI now comes from package metadata instead of duplicated hardcoded strings.
+
+### Internal
+
+- `.gitignore` was updated during this cycle to better exclude generated or local-only files.
+- Removed redundant package-level `__version__` and `__author__` constants so `pyproject.toml` remains the single version/authority source.
+
 ## 3.0.0 - 2026-04-03
 
 ### Added
