@@ -552,9 +552,6 @@ This will test:
 - CSV export functionality
 - Sample data processing
 
-**Deprecation Notice:**
-Running `python test_zotgrep.py` is deprecated. Please use the package-based test suite in the `tests/` directory via the `uv run --group test python -m pytest` command shown above.
-
 ## License
 
 This project is open source published, like Zotero itself, under a GPL license. Please refer to the license file for details.
