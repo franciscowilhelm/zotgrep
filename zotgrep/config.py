@@ -7,6 +7,7 @@ and runtime validation.
 
 import json
 import os
+import stat
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional
 
@@ -61,10 +62,17 @@ class ZotGrepConfig:
         self._validate_paths()
         self._validate_search_params()
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Return a JSON-serializable representation of the config."""
+    def to_dict(self, *, include_secrets: bool = True) -> Dict[str, Any]:
+        """Return a JSON-serializable representation of the config.
+
+        Args:
+            include_secrets: When False, the API key is redacted. Pass False
+                for logging or any context where the value might be exposed.
+        """
         values = asdict(self)
         values.pop("use_local_api", None)
+        if not include_secrets:
+            values["zotero_api_key"] = "***"
         return values
 
     def _validate_zotero_config(self) -> None:
@@ -126,7 +134,10 @@ def save_config_to_file(config: ZotGrepConfig, config_path: Optional[str] = None
     path = get_user_config_path(config_path)
     config.validate()
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as handle:
+    # Write with restricted permissions (owner read/write only) to protect
+    # the API key in case users configure a real Zotero Web API key.
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
         json.dump(config.to_dict(), handle, indent=2, sort_keys=True)
         handle.write("\n")
     return path

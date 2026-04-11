@@ -13,7 +13,7 @@ format:
     logo: ""
 ---
 
-# What is ZotGrep? {background-color="#2d3436"}
+# What is ZotGrep?
 
 A Python tool that lets you **search across your Zotero library** — both metadata and full-text PDFs — from a local web interface or the command line.
 

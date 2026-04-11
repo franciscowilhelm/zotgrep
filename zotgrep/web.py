@@ -348,9 +348,14 @@ def create_app() -> Flask:
         if request.method == "GET":
             return _render_settings_page(_build_settings_form(load_config_from_file()))
 
+        # Preserve the existing API key when the user leaves the field blank
+        # (the form never sends back the real key for security reasons).
+        existing_config = load_config_from_file()
+        submitted_api_key = request.form.get("zotero_api_key", "").strip()
+
         form = {
             "zotero_user_id": request.form.get("zotero_user_id", "").strip(),
-            "zotero_api_key": request.form.get("zotero_api_key", "").strip(),
+            "zotero_api_key": submitted_api_key or existing_config.zotero_api_key,
             "library_type": request.form.get("library_type", "user").strip() or "user",
             "base_attachment_path": request.form.get("base_attachment_path", "").strip(),
             "max_results_stage1": request.form.get("max_results_stage1", "100").strip(),
@@ -360,7 +365,7 @@ def create_app() -> Flask:
         try:
             config = ZotGrepConfig(
                 zotero_user_id=form["zotero_user_id"] or "0",
-                zotero_api_key=form["zotero_api_key"] or "local",
+                zotero_api_key=form["zotero_api_key"],
                 library_type=form["library_type"],
                 base_attachment_path=form["base_attachment_path"],
                 max_results_stage1=_parse_int(form["max_results_stage1"], 100),
@@ -1316,7 +1321,7 @@ SETTINGS_CONTENT_TEMPLATE = r"""
     <div class="form-group">
       <label for="zotero_api_key">Zotero API Key</label>
       <input type="password" id="zotero_api_key" name="zotero_api_key"
-             value="{{ form.get('zotero_api_key', 'local') }}">
+             value="" placeholder="{{ 'configured' if form.get('zotero_api_key', 'local') != 'local' else 'local' }}">
       <small>For the local Zotero API this should normally remain <code>local</code>.</small>
     </div>
 
