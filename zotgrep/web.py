@@ -500,14 +500,15 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
     --input-bg: #45475a;
     --border: #585b70;
     --primary: #cba6f7;
-    --primary-hover: #8839ef;
-    --text: #e6edf3;
+    --primary-hover: #b4befe;
+    --text: #cdd6f4;
     --text-muted: #bac2de;
     --danger: #f38ba8;
     --danger-bg: #45293a;
     --success: #94e2d5;
     --success-bg: #244546;
-    --mark-bg: rgba(249,226,175,0.25);
+    --mark-bg: rgba(249,226,175,0.45);
+    --mark-text: #1e1e2e;
     --context-bg: #45475a;
     --overlay-bg: rgba(30,30,46,0.9);
     --header-accent: #cba6f7;
@@ -794,7 +795,7 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
   }
   .result-context mark {
     background: var(--mark-bg);
-    color: var(--text);
+    color: var(--mark-text, var(--text));
     padding: 0.1rem 0.2rem;
     border-radius: 2px;
   }
@@ -877,7 +878,7 @@ BASE_TEMPLATE = r"""<!DOCTYPE html>
   }
   .hit-quote mark {
     background: var(--mark-bg);
-    color: var(--text);
+    color: var(--mark-text, var(--text));
     padding: 0.1rem 0.2rem;
     border-radius: 2px;
   }

@@ -28,3 +28,7 @@ zotero_search_results_*.json
 /csm_profiles
 /pdf_intro_extractor_job
 /.understand-anything
+
+# Quarto rendered output
+tutorial/zotgrep-tutorial.html
+tutorial/zotgrep-tutorial_files/

@@ -1,0 +1,47 @@
+name: Deploy Tutorial to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tutorial/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Render tutorial
+        run: quarto render tutorial/zotgrep-tutorial.qmd
+
+      - name: Prepare pages artifact
+        run: |
+          mkdir -p _site
+          cp tutorial/zotgrep-tutorial.html _site/index.html
+          cp -r tutorial/zotgrep-tutorial_files _site/ 2>/dev/null || true
+          cp -r tutorial/images _site/images
+
+      - uses: actions/upload-pages-artifact@v3
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
