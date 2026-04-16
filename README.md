@@ -26,6 +26,8 @@ Disclaimer: The project includes substantial parts that were vibe-coded using Cl
 
 ## Installation
 
+A slide-deck tutorial for installation and usage is also available at: [franciscowilhelm.github.io/zotgrep/](https://franciscowilhelm.github.io/zotgrep/).
+
 ### Install from PyPI
 
 For most users, install ZotGrep from PyPI and run it as a CLI tool:
