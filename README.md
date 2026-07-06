@@ -117,8 +117,12 @@ zotgrep --zotero "career engagement" --metadata-only
 zotgrep --zotero "career engagement" --no-abstract
 zotgrep --zotero "AI ethics" --item-type "journalArticle, bookSection" --tags "privacy, fairness" --tag-match any
 zotgrep --zotero "measurement invariance" --collection "Focused Review"
+zotgrep --zotero '"career engagement", "career orientation"' --metadata-only
 ```
-- `--zotero` specifies the metadata search string (e.g., title, author, etc.).
+- `--zotero` specifies the metadata search string (e.g., title, author, etc.). It supports boolean syntax: comma or `OR` for alternatives, `AND` for conjunction (`AND` binds tighter than `OR`), and double-quoted phrases for exact phrase matching. For example, `zotgrep --zotero '"career engagement", "career orientation"' --metadata-only` runs one Zotero search per alternative and merges the results.
+  - Phrases are verified against title, creator names, and date, but only in the default Title-Author-Year search mode; in Everything mode phrases fall back to "all words present" matching.
+  - `*` wildcards and parentheses are not supported in metadata queries (wildcards work only in `--fulltext` queries); `*` is passed to Zotero unchanged and matches literally.
+  - Plain queries without any operators behave exactly as before: they are passed verbatim to Zotero quick search, where space-separated words are implicitly ANDed as word matches (not phrases).
 - `--fulltext` optionally specifies the full-text search terms (comma-separated).
 - `--metadata-only` / `--no-fulltext` runs only the metadata search and skips PDF/full-text processing.
 - abstracts are included by default; `--no-abstract` omits them.
@@ -378,7 +382,7 @@ Results are organized by paper with YAML frontmatter and annotations sections, p
 
 ### Search Term Options
 
-- `--zotero "SEARCH TERMS"`: Specify Zotero metadata search terms directly (e.g., `"machine learning health"`)
+- `--zotero "SEARCH TERMS"`: Specify Zotero metadata search terms directly (e.g., `"machine learning health"`). Supports boolean syntax: comma or `OR` for alternatives, `AND` for conjunction (`AND` binds tighter than `OR`), and double-quoted phrases for exact matching, e.g. `'"career engagement", "career orientation"'`. `*` wildcards and parentheses are not supported here (use `--fulltext` for wildcards). Plain queries without operators are passed verbatim to Zotero quick search.
 - `--fulltext "TERM1, TERM2"`: Optionally specify full-text search terms as a comma-separated list (e.g., `"algorithm, bias"`)
 - `--metadata-only` or `--no-fulltext`: Skip PDF/full-text processing and return metadata-only results
 - `--no-abstract`: Omit abstracts from output

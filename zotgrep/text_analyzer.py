@@ -152,8 +152,8 @@ def compile_full_text_term_pattern(term: str) -> re.Pattern[str]:
 
 
 def metadata_query_uses_unsupported_operators(query: str) -> bool:
-    """Detect operator-like syntax that Zotero quick search does not support."""
-    return bool(re.search(r"\*|\bAND\b|\bOR\b", query or "", re.IGNORECASE))
+    """Detect syntax that metadata search still does not support: '*' wildcards and parentheses."""
+    return bool(re.search(r"[*()]", query or ""))
 
 
 def metadata_query_is_boolean(query: str) -> bool:

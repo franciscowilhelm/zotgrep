@@ -39,6 +39,7 @@ _install_dependency_stubs()
 from zotgrep.text_analyzer import (
     TextAnalyzer,
     metadata_query_is_boolean,
+    metadata_query_uses_unsupported_operators,
     parse_full_text_query,
 )
 
@@ -142,6 +143,27 @@ class TestTextAnalyzer(unittest.TestCase):
 
     def test_metadata_query_is_boolean_false_for_plain_multi_word_query(self):
         self.assertFalse(metadata_query_is_boolean("career engagement"))
+
+    def test_metadata_query_uses_unsupported_operators_true_for_wildcard(self):
+        self.assertTrue(metadata_query_uses_unsupported_operators("career*"))
+
+    def test_metadata_query_uses_unsupported_operators_true_for_parentheses(self):
+        self.assertTrue(metadata_query_uses_unsupported_operators("(alpha OR beta)"))
+        self.assertTrue(metadata_query_uses_unsupported_operators("alpha)"))
+        self.assertTrue(metadata_query_uses_unsupported_operators("(alpha"))
+
+    def test_metadata_query_uses_unsupported_operators_false_for_and_or(self):
+        self.assertFalse(metadata_query_uses_unsupported_operators("alpha AND beta"))
+        self.assertFalse(metadata_query_uses_unsupported_operators("alpha OR beta"))
+
+    def test_metadata_query_uses_unsupported_operators_false_for_comma(self):
+        self.assertFalse(metadata_query_uses_unsupported_operators("alpha, beta"))
+
+    def test_metadata_query_uses_unsupported_operators_false_for_quotes(self):
+        self.assertFalse(metadata_query_uses_unsupported_operators('"career engagement"'))
+
+    def test_metadata_query_uses_unsupported_operators_false_for_plain_query(self):
+        self.assertFalse(metadata_query_uses_unsupported_operators("career engagement"))
 
     def test_tokenize_sentences_returns_empty_list_for_blank_input(self):
         analyzer = TextAnalyzer()

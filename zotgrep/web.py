@@ -276,8 +276,9 @@ def create_app() -> Flask:
         warnings: list[str] = []
         if metadata_query_uses_unsupported_operators(zotero_query):
             warnings.append(
-                "Metadata search still uses Zotero quick-search semantics. '*', 'AND', and "
-                "'OR' are passed through unchanged and are not interpreted as operators by ZotGrep."
+                "Wildcards ('*') and parentheses are not supported in metadata queries. '*' is "
+                "passed to Zotero unchanged and matches literally; use AND, OR, commas, and "
+                "quoted phrases instead."
             )
 
         fulltext_terms: list[str] = []
