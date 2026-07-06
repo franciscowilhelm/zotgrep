@@ -254,16 +254,9 @@ class ZoteroSearchEngine:
             )
 
             if len(items) >= self.config.max_results_stage1:
-                cli_warning = (
-                    f"Metadata search returned {len(items)} results, which equals the current "
-                    f"limit of {self.config.max_results_stage1}. Some matching references may "
-                    f"have been omitted. Consider raising --max-results or narrowing your query."
-                )
-                web_warning = (
-                    f"Metadata search returned {len(items)} results, which equals the current "
-                    f"limit of {self.config.max_results_stage1}. Some matching references may "
-                    f"have been omitted. Consider raising the Max Results limit in Advanced Search Settings "
-                    f"or narrowing your query."
+                cli_warning, web_warning = self._build_stage1_limit_warnings(
+                    len(items),
+                    filters,
                 )
                 self.warnings.append(web_warning)
                 print(f"  Warning: {cli_warning}")
@@ -282,6 +275,33 @@ class ZoteroSearchEngine:
         except Exception as e:
             print(f"Error during Zotero metadata search: {e}")
             return []
+
+    def _build_stage1_limit_warnings(
+        self,
+        item_count: int,
+        filters: MetadataFilters,
+    ) -> Tuple[str, str]:
+        cli_warning = (
+            f"Metadata search returned {item_count} results, which equals the current "
+            f"limit of {self.config.max_results_stage1}. Some matching references may "
+            f"have been omitted. Consider raising --max-results or narrowing your query."
+        )
+        web_warning = (
+            f"Metadata search returned {item_count} results, which equals the current "
+            f"limit of {self.config.max_results_stage1}. Some matching references may "
+            f"have been omitted. Consider raising the Max Results limit in Advanced Search Settings "
+            f"or narrowing your query."
+        )
+
+        if filters.publication_titles:
+            suffix = (
+                " Publication title filtering is applied client-side after the API response, "
+                "so additional matches in the requested publication(s) may have been missed."
+            )
+            cli_warning += suffix
+            web_warning += suffix
+
+        return cli_warning, web_warning
 
     def _fetch_metadata_items(
         self,

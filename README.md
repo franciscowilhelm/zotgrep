@@ -122,7 +122,7 @@ zotgrep --zotero "measurement invariance" --collection "Focused Review"
 - `--fulltext` optionally specifies the full-text search terms (comma-separated).
 - `--metadata-only` / `--no-fulltext` runs only the metadata search and skips PDF/full-text processing.
 - abstracts are included by default; `--no-abstract` omits them.
-- `--publication` / `--publication-title` filters results by publication title (comma-separated for multiple).
+- `--publication` / `--publication-title` filters results by publication title (comma-separated for multiple). This filter is applied client-side after the Zotero API metadata query.
 - `--item-type` / `--itemtype` filters by Zotero item type (comma-separated for multiple).
 - `--collection` filters by a Zotero collection key or exact collection name.
 - `--tag` / `--tags` filters by Zotero tag (comma-separated for multiple).
@@ -382,7 +382,7 @@ Results are organized by paper with YAML frontmatter and annotations sections, p
 - `--fulltext "TERM1, TERM2"`: Optionally specify full-text search terms as a comma-separated list (e.g., `"algorithm, bias"`)
 - `--metadata-only` or `--no-fulltext`: Skip PDF/full-text processing and return metadata-only results
 - `--no-abstract`: Omit abstracts from output
-- `--publication "TITLE1, TITLE2"` or `--publication-title "TITLE1, TITLE2"`: Filter results by publication title (comma-separated list). Example: `"Nature, Science"`
+- `--publication "TITLE1, TITLE2"` or `--publication-title "TITLE1, TITLE2"`: Filter results by publication title (comma-separated list). Example: `"Nature, Science"`. This filter is currently applied client-side after the Zotero API metadata query, because the Zotero Web API does not expose a publication-title search parameter.
 - `--item-type "TYPE1, TYPE2"` or `--itemtype "TYPE1, TYPE2"`: Filter by Zotero item type. Example: `"journalArticle, book"`
 - `--collection "COLLECTION"`: Filter by Zotero collection key or exact collection name. Example: `"ABCD1234"` or `"Focused Review"`
 - `--tag "TAG1, TAG2"` or `--tags "TAG1, TAG2"`: Filter by Zotero tags. Example: `"privacy, fairness"`

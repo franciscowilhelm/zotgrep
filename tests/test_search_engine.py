@@ -286,3 +286,69 @@ class TestZoteroSearchEngine(unittest.TestCase):
         items = engine._search_metadata("alpha")
 
         self.assertEqual([item["data"]["key"] for item in items], ["ITEM1", "ITEM2"])
+
+    def test_publication_title_filter_is_applied_client_side(self):
+        engine = self.search_engine_module.ZoteroSearchEngine(
+            ZotGrepConfig(
+                base_attachment_path="",
+                publication_title_filter=["Human Resource Management Review"],
+            )
+        )
+        engine.zot_conn = Mock()
+        engine.zot_conn.items.return_value = [
+            {
+                "data": {
+                    "key": "ITEM1",
+                    "itemType": "journalArticle",
+                    "publicationTitle": "Human Resource Management Review",
+                }
+            },
+            {
+                "data": {
+                    "key": "ITEM2",
+                    "itemType": "journalArticle",
+                    "publicationTitle": "Academy of Management Journal",
+                }
+            },
+        ]
+
+        items = engine._search_metadata("review")
+
+        self.assertEqual([item["data"]["key"] for item in items], ["ITEM1"])
+        engine.zot_conn.items.assert_called_once_with(
+            q="review",
+            itemType="-attachment",
+            limit=100,
+            qmode="titleCreatorYear",
+        )
+
+    def test_stage1_limit_warning_mentions_client_side_publication_filter(self):
+        engine = self.search_engine_module.ZoteroSearchEngine(
+            ZotGrepConfig(
+                base_attachment_path="",
+                max_results_stage1=2,
+                publication_title_filter=["Human Resource Management Review"],
+            )
+        )
+        engine.zot_conn = Mock()
+        engine.zot_conn.items.return_value = [
+            {
+                "data": {
+                    "key": "ITEM1",
+                    "itemType": "journalArticle",
+                    "publicationTitle": "Human Resource Management Review",
+                }
+            },
+            {
+                "data": {
+                    "key": "ITEM2",
+                    "itemType": "journalArticle",
+                    "publicationTitle": "Academy of Management Journal",
+                }
+            },
+        ]
+
+        engine._search_metadata("review")
+
+        self.assertEqual(len(engine.warnings), 1)
+        self.assertIn("Publication title filtering is applied client-side", engine.warnings[0])
