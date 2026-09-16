@@ -1,11 +1,15 @@
 # Changelog
 
-## Unreleased
+## 3.2.1 - 2026-09-16
 
 ### Fixed
 
 - The CLI no longer ignores `max_results_stage1` and `context_sentence_window` from the config file or the `ZOTERO_MAX_RESULTS` / `ZOTERO_CONTEXT_WINDOW` environment variables. `--max-results` and `--context-window` previously always applied their built-in defaults (100 and 2), overriding saved settings.
 - `--context-window 0` is now honored instead of being treated as unset, and `--max-results 0` reports a validation error instead of being silently ignored.
+
+### Documentation
+
+- Updated the tutorial deck for 3.2: Boolean metadata query syntax, incomplete-result warnings, corrected full-text syntax and configuration precedence, and refreshed web UI screenshots.
 
 ## 3.2.0 - 2026-09-16
 
