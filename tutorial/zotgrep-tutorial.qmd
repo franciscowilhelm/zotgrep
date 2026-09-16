@@ -1,6 +1,8 @@
 ---
 title: "ZotGrep Tutorial"
 subtitle: "Full-Text Search for Your Zotero Library"
+date: 2026-09-16
+date-format: long
 format:
   revealjs:
     theme: dark
@@ -18,7 +20,7 @@ format:
 A Python tool that lets you **search across your Zotero library** — both metadata and full-text PDFs — from a local web interface or the command line.
 
 ::: {.incremental}
-- Search Zotero metadata (titles, authors, years)
+- Boolean search of Zotero metadata (titles, authors, years)
 - Full-text search inside PDF attachments
 - Context-aware text snippets with highlighted terms
 - Export results as CSV, Markdown, or JSON
@@ -43,7 +45,7 @@ A Python tool that lets you **search across your Zotero library** — both metad
 
 ZotGrep requires:
 
-- **Python 3.10+**
+- **Python 3.11+** (uv can install it for you)
 - **Zotero 7 or higher** running locally (ZotGrep uses the local Zotero API)
 
 ---
@@ -90,9 +92,9 @@ zotgrep --version
 . . .
 
 ::: {.callout-tip}
-## Alternative: as a project dependency
+## Upgrading
 ```bash
-uv add zotgrep
+uv tool upgrade zotgrep
 ```
 :::
 
@@ -164,8 +166,8 @@ zotgrep --web --port 8080
 
 The search page has two main input fields:
 
-1. **Zotero Search** (required) — metadata search terms
-2. **Full-Text Search Terms** (optional) — comma-separated terms to search inside PDFs
+1. **Zotero Metadata Search** (required): supports `AND`, `OR`, commas, and quoted phrases
+2. **Full-Text Search Terms** (optional): terms to search inside PDFs
 
 ---
 
@@ -211,22 +213,43 @@ Each result card shows:
 
 ---
 
-## Full-Text Query Syntax {.smaller}
+## Metadata Query Syntax {.smaller}
 
-The full-text search field supports more than simple terms:
+The **Zotero Metadata Search** field (and `--zotero`) accepts Boolean queries:
 
 | Syntax | Example | Meaning |
-|--------|---------|---------|
-| Simple terms | `algorithm, bias` | Search for each term |
-| Quoted phrases | `"machine learning"` | Exact phrase match |
-| Wildcards | `algorithm*` | Prefix matching |
-| AND | `privacy AND fairness` | Both must appear |
-| OR | `privacy OR security` | Either can appear |
-| Grouping | `(privacy OR security) AND model` | Combined logic |
+|---------------|-----------------------------------|----------------------------|
+| Words | `career engagement` | All words, in any field |
+| Phrase | `"career engagement"` | Exact phrase |
+| OR / comma | `"career engagement", motivation` | Either alternative |
+| AND | `burnout AND nurses` | Both must match |
+| Combined | `burnout AND nurses OR teachers` | `AND` binds tighter than `OR` |
+
+. . .
+
+Each alternative is a separate Zotero search; results are merged without duplicates. No wildcards (`*`) or parentheses here.
 
 ---
 
-## Metadata Search Scope
+## Full-Text Query Syntax {.smaller}
+
+The **Full-Text Search Terms** field (and `--fulltext`) matches text inside PDFs:
+
+| Syntax | Example | Meaning |
+|---------------|-----------------------------------|----------------------------|
+| Phrase | `machine learning` | Exact phrase (quotes optional) |
+| Wildcard | `algorithm*` | Prefix match, e.g. `algorithms` |
+| OR / comma | `privacy, security` | Either term |
+| AND | `privacy AND fairness` | Both on the same page |
+| Combined | `privacy AND fairness OR bias` | `AND` binds tighter than `OR` |
+
+. . .
+
+No parentheses: write `(a OR b) AND c` as `a AND c OR b AND c`.
+
+---
+
+## Metadata Search Scope {.smaller}
 
 Two modes available via the dropdown:
 
@@ -236,6 +259,7 @@ Two modes available via the dropdown:
 
 - Searches title, author, and year fields
 - Fast and precise
+- Quoted phrases are verified as exact phrases
 
 . . .
 
@@ -243,6 +267,7 @@ Two modes available via the dropdown:
 
 - Also searches Zotero's indexed attachment content
 - Broader results, slower
+- Quoted phrases only require all of their words to appear
 
 ---
 
@@ -274,6 +299,20 @@ ZotGrep ships with three visual themes, selectable from the top-right corner:
 
 Your choice is saved in the browser and persists across sessions.
 
+---
+
+## When Results May Be Incomplete {.smaller}
+
+Warning boxes above the results (or `Warning:` lines in the CLI) tell you when ZotGrep may have missed something:
+
+| Warning | What to do |
+|---------|------------|
+| A metadata search **reached the Max Results limit** | Raise **Max Results** or narrow the query |
+| Limit reached **with a publication title filter** | This filter is applied after Zotero returns results, so raise the limit |
+| **Stored PDF missing** | Restore or sync the attachment in Zotero |
+| **Linked PDF skipped** | Set `base_attachment_path`, or check that the file exists |
+| **Wildcards or parentheses** in a metadata query | Use `AND`, `OR`, commas, and quotes instead |
+
 # Part 3: Advanced Settings {background-color="#6c5ce7"}
 
 ## Search Page: Advanced Settings
@@ -288,12 +327,12 @@ Click **"Advanced Search Settings"** on the search page to expand filter options
 
 | Filter | What it does |
 |--------|-------------|
-| **Publication title** | Only show results from specific journals/venues |
+| **Publication title** | Only show results from specific journals/venues (applied after the Zotero search) |
 | **Item type** | Filter by Zotero type (`journalArticle`, `book`, etc.) |
 | **Collection** | Restrict to a Zotero collection (by key or exact name) |
 | **Tags** | Filter by Zotero tags |
 | **Tag match mode** | Require **all** tags or **any** tag |
-| **Max results** | Limit number of Stage 1 results (default: 100) |
+| **Max results** | Stage 1 results per metadata alternative (default: 100) |
 | **Context window** | Sentences before/after each match (default: 2) |
 | **Metadata only** | Skip PDF processing entirely |
 | **Include abstracts** | Show abstracts in result cards |
@@ -307,6 +346,10 @@ Navigate to **General Settings** (link in the top-right) to configure persistent
 ![General Settings page](images/general-settings.png){fig-alt="ZotGrep general settings page showing configuration fields for Zotero connection, file paths, and default search parameters" width="90%"}
 
 These settings are saved to `~/.config/zotgrep/config.json`.
+
+::: {.callout-note}
+The API key field stays blank when you reopen the page. Leave it blank to keep the saved key. For the local Zotero API the key is simply `local`.
+:::
 
 ---
 
@@ -332,14 +375,16 @@ You can also edit the config file directly:
 If you use **linked** PDF attachments in Zotero (not stored in Zotero's data directory), set `base_attachment_path` to the root directory containing your PDFs.
 :::
 
+Use a different file with `--config /path/to/config.json` or the `ZOTGREP_CONFIG_PATH` environment variable.
+
 ---
 
 ## Configuration Priority {.smaller}
 
 Settings are resolved in this order (highest priority wins):
 
-1. **Environment variables** (e.g., `ZOTERO_BASE_ATTACHMENT_PATH`)
-2. **CLI arguments** (e.g., `--max-results 50`)
+1. **CLI arguments** (e.g., `--base-path /Users/me/Papers`)
+2. **Environment variables** (e.g., `ZOTERO_BASE_ATTACHMENT_PATH`)
 3. **Config file** (`~/.config/zotgrep/config.json`)
 4. **Package defaults**
 
@@ -354,22 +399,32 @@ zotgrep --web
 
 ---
 
-## Environment Variables {.smaller}
+## Environment Variables (1/2) {.smaller}
 
 | Variable | Config equivalent |
 |----------|-----------------|
+| `ZOTGREP_CONFIG_PATH` | Path to the config file itself |
 | `ZOTERO_USER_ID` | `zotero_user_id` |
 | `ZOTERO_API_KEY` | `zotero_api_key` |
 | `ZOTERO_LIBRARY_TYPE` | `library_type` |
 | `ZOTERO_BASE_ATTACHMENT_PATH` | `base_attachment_path` |
 | `ZOTERO_MAX_RESULTS` | `max_results_stage1` |
 | `ZOTERO_CONTEXT_WINDOW` | `context_sentence_window` |
+
+---
+
+## Environment Variables (2/2) {.smaller}
+
+| Variable | Config equivalent |
+|----------|-----------------|
 | `ZOTERO_PUBLICATION_TITLE_FILTER` | `publication_title_filter` |
 | `ZOTERO_ITEM_TYPE_FILTER` | `item_type_filter` |
 | `ZOTERO_COLLECTION_FILTER` | `collection_filter` |
 | `ZOTERO_TAG_FILTER` | `tag_filter` |
 | `ZOTERO_TAG_MATCH_MODE` | `tag_match_mode` |
 | `ZOTERO_METADATA_SEARCH_MODE` | `metadata_search_mode` |
+| `ZOTERO_FULLTEXT_SOURCE` | `fulltext_source` |
+| `ZOTERO_DEBUG_PUBLICATION_FILTER` | `debug_publication_filter` |
 
 # Part 4: CLI Usage {background-color="#e17055"}
 
@@ -385,10 +440,9 @@ zotgrep
 
 You'll be prompted for:
 
-1. Zotero search terms
-2. Whether to do full-text search
-3. Full-text search terms (if yes)
-4. Output format preferences
+1. Zotero metadata search terms
+2. Full-text search terms (leave blank for metadata only)
+3. Output format (CSV or Markdown), once results are shown
 
 ---
 
@@ -400,8 +454,11 @@ Pass arguments directly for scripted/automated use:
 # Metadata search only
 zotgrep --zotero "machine learning health" --metadata-only
 
+# Boolean metadata query: exact phrases as alternatives
+zotgrep --zotero '"career engagement", "career orientation"' --metadata-only
+
 # With full-text search
-zotgrep --zotero "AI ethics" --fulltext "privacy, fairness"
+zotgrep --zotero "AI ethics" --fulltext "privacy AND fairness, bias"
 
 # Filter by collection
 zotgrep --zotero "career" --collection "Literature Review"
@@ -451,8 +508,11 @@ zotgrep --zotero "term" --item-type "journalArticle, book"
 # Adjust context window (sentences around each match)
 zotgrep --zotero "term" --fulltext "word" --context-window 4
 
-# Limit results
+# Limit results (per metadata alternative)
 zotgrep --zotero "term" --max-results 50
+
+# Show publication titles before filtering (debug)
+zotgrep --zotero "term" --publication "Nature" --debug-publication
 
 # Use custom config file
 zotgrep --zotero "term" --config /path/to/config.json
@@ -472,8 +532,6 @@ zotgrep --zotero "term" --config /path/to/config.json
 | Zotero links | Clickable | In output files |
 | Full-text source toggle | No (uses default) | Yes (`--fulltext-source`) |
 
----
-
 # Quick Start Cheat Sheet {background-color="#2d3436"}
 
 ```bash
@@ -488,7 +546,10 @@ zotgrep --web
 # 4. Open browser to http://localhost:23120
 
 # 5. Or use CLI directly
-zotgrep --zotero "your search" --fulltext "term1, term2"
+zotgrep --zotero '"exact phrase" OR keyword' --fulltext "term1, term2"
+
+# Upgrade later
+uv tool upgrade zotgrep
 ```
 
 ---
@@ -505,6 +566,18 @@ zotgrep --zotero "your search" --fulltext "term1, term2"
 ## Feedback welcome!
 Open an issue on GitHub if you have questions or feature requests.
 :::
+
+## What's New in 3.2 {.smaller}
+
+::: {.incremental}
+- **Boolean metadata search**: combine alternatives with `OR` or commas, require terms with `AND`, and match exact `"quoted phrases"`
+- **Clearer warnings**: ZotGrep tells you when a search hit the result limit or when attachments could not be read, so you know results may be incomplete
+- **More reliable PDF reading**: Zotero-stored PDFs are read directly from their local file
+- **Faster connection on Windows**: ZotGrep now connects to Zotero via `127.0.0.1`, avoiding slow IPv6 retries
+- **Python 3.11+** is now required
+:::
+
+> Already installed? Run `uv tool upgrade zotgrep`.
 
 # Thank you! {background-color="#2d3436"}
 
