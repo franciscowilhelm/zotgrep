@@ -524,6 +524,12 @@ def main() -> int:
     Returns:
         Exit code
     """
+    # Redirected Windows consoles may use cp1252. A title that cannot be
+    # represented there must not abort a CLI or web search while logging.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(errors="backslashreplace")
     cli = ZotGrepCLI()
     return cli.run()
 

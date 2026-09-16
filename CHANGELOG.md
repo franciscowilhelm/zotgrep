@@ -9,6 +9,7 @@
 
 ### Fixed
 
+- Prevent Unicode paper titles from aborting searches when progress output is redirected through a Windows console encoding.
 - Connect to Zotero's local API through IPv4 loopback (`127.0.0.1`) to avoid repeated IPv6 connection failure delays on Windows.
 - Preserve implicit word-based AND matching in unquoted metadata alternatives; only quoted multi-word terms require phrase verification.
 - Keep asterisks literal during metadata phrase verification instead of interpreting them as full-text wildcards.
