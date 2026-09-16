@@ -36,7 +36,12 @@ def _install_dependency_stubs():
 
 _install_dependency_stubs()
 
-from zotgrep.text_analyzer import TextAnalyzer, parse_full_text_query
+from zotgrep.text_analyzer import (
+    TextAnalyzer,
+    metadata_query_is_boolean,
+    metadata_query_uses_unsupported_operators,
+    parse_full_text_query,
+)
 
 
 class FakePysbdModule:
@@ -92,6 +97,73 @@ class TestTextAnalyzer(unittest.TestCase):
     def test_parse_full_text_query_rejects_dangling_operator(self):
         with self.assertRaisesRegex(ValueError, "cannot end with an operator"):
             parse_full_text_query("alpha AND")
+
+    def test_to_dnf_single_term(self):
+        query = parse_full_text_query("alpha")
+
+        self.assertEqual(query.to_dnf(), [["alpha"]])
+
+    def test_to_dnf_comma_is_or(self):
+        query = parse_full_text_query("a, b")
+
+        self.assertEqual(query.to_dnf(), [["a"], ["b"]])
+
+    def test_to_dnf_and_chain(self):
+        query = parse_full_text_query("a AND b AND c")
+
+        self.assertEqual(query.to_dnf(), [["a", "b", "c"]])
+
+    def test_to_dnf_and_has_higher_precedence_than_or(self):
+        query = parse_full_text_query("a AND b OR c AND d")
+
+        self.assertEqual(query.to_dnf(), [["a", "b"], ["c", "d"]])
+
+    def test_to_dnf_quoted_phrases(self):
+        query = parse_full_text_query('"career engagement", "career orientation"')
+
+        self.assertEqual(
+            query.to_dnf(),
+            [["career engagement"], ["career orientation"]],
+        )
+
+    def test_to_dnf_dedupes_duplicate_terms_within_branch(self):
+        query = parse_full_text_query("a AND b AND a")
+
+        self.assertEqual(query.to_dnf(), [["a", "b"]])
+
+    def test_metadata_query_is_boolean_true_for_comma(self):
+        self.assertTrue(metadata_query_is_boolean("career engagement, career orientation"))
+
+    def test_metadata_query_is_boolean_true_for_and_or(self):
+        self.assertTrue(metadata_query_is_boolean("alpha AND beta"))
+        self.assertTrue(metadata_query_is_boolean("alpha OR beta"))
+
+    def test_metadata_query_is_boolean_true_for_quotes(self):
+        self.assertTrue(metadata_query_is_boolean('"career engagement"'))
+
+    def test_metadata_query_is_boolean_false_for_plain_multi_word_query(self):
+        self.assertFalse(metadata_query_is_boolean("career engagement"))
+
+    def test_metadata_query_uses_unsupported_operators_true_for_wildcard(self):
+        self.assertTrue(metadata_query_uses_unsupported_operators("career*"))
+
+    def test_metadata_query_uses_unsupported_operators_true_for_parentheses(self):
+        self.assertTrue(metadata_query_uses_unsupported_operators("(alpha OR beta)"))
+        self.assertTrue(metadata_query_uses_unsupported_operators("alpha)"))
+        self.assertTrue(metadata_query_uses_unsupported_operators("(alpha"))
+
+    def test_metadata_query_uses_unsupported_operators_false_for_and_or(self):
+        self.assertFalse(metadata_query_uses_unsupported_operators("alpha AND beta"))
+        self.assertFalse(metadata_query_uses_unsupported_operators("alpha OR beta"))
+
+    def test_metadata_query_uses_unsupported_operators_false_for_comma(self):
+        self.assertFalse(metadata_query_uses_unsupported_operators("alpha, beta"))
+
+    def test_metadata_query_uses_unsupported_operators_false_for_quotes(self):
+        self.assertFalse(metadata_query_uses_unsupported_operators('"career engagement"'))
+
+    def test_metadata_query_uses_unsupported_operators_false_for_plain_query(self):
+        self.assertFalse(metadata_query_uses_unsupported_operators("career engagement"))
 
     def test_tokenize_sentences_returns_empty_list_for_blank_input(self):
         analyzer = TextAnalyzer()

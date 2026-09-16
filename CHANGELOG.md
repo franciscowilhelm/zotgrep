@@ -1,5 +1,23 @@
 # Changelog
 
+## 3.2.0 - Unreleased
+
+### Added
+
+- Boolean metadata queries with `AND`, `OR`, comma-separated alternatives, and quoted phrases. Results are deduplicated across alternatives; `AND` takes precedence over `OR`.
+- Warnings when individual metadata searches reach the result limit, including the effect of client-side publication filtering.
+
+### Fixed
+
+- Connect to Zotero's local API through IPv4 loopback (`127.0.0.1`) to avoid repeated IPv6 connection failure delays on Windows.
+- Preserve implicit word-based AND matching in unquoted metadata alternatives; only quoted multi-word terms require phrase verification.
+- Keep asterisks literal during metadata phrase verification instead of interpreting them as full-text wildcards.
+
+### Notes
+
+- The metadata result limit applies to each alternative, so merged Boolean results can exceed it.
+- Quoted phrases are verified against title, creator names, and date in Title-Author-Year mode. Everything mode retains all-words matching because indexed content is not included in metadata responses.
+
 ## 3.1.2 - 2026-04-10
 
 ### Added

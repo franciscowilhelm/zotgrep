@@ -140,7 +140,7 @@ class TestWebSettings(unittest.TestCase):
         response = client.post(
             "/search",
             data={
-                "zotero_query": "alpha AND beta",
+                "zotero_query": "alpha*",
                 "fulltext_terms": "gamma",
                 "include_abstract": "on",
             },
@@ -148,7 +148,9 @@ class TestWebSettings(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("Metadata search still uses Zotero quick-search semantics", html)
+        self.assertIn(
+            "Wildcards (&#39;*&#39;) and parentheses are not supported in metadata queries", html
+        )
 
     def test_search_page_preserves_filter_values_on_fulltext_validation_error(self):
         app = create_app()
