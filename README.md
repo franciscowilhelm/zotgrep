@@ -397,8 +397,8 @@ Results are organized by paper with YAML frontmatter and annotations sections, p
 
 - `--config CONFIG`: Path to configuration file (JSON format)
 - `--base-path PATH`: Override base attachment path
-- `--max-results N`: Maximum results for metadata search (default: 100)
-- `--context-window N`: Context sentence window size (default: 2). The default means 2 sentences before and after the keyword is found will be returned. Larger window sizes will return more sentences. Sentence splitting uses the Zotero item language when available, with a built-in fallback if no language-aware tokenizer is available at runtime.
+- `--max-results N`: Maximum results per metadata search alternative (default: config file, `ZOTERO_MAX_RESULTS`, or 100)
+- `--context-window N`: Context sentence window size (default: config file, `ZOTERO_CONTEXT_WINDOW`, or 2). A window of 2 means 2 sentences before and after the keyword is found will be returned. Larger window sizes will return more sentences. Sentence splitting uses the Zotero item language when available, with a built-in fallback if no language-aware tokenizer is available at runtime.
 - `--port PORT`: Port for the local web interface when using `--web` (default: 23120)
 - `--version`: Show version information
 - `--help`: Show help message
