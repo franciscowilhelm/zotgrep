@@ -1,7 +1,8 @@
 ---
 title: "ZotGrep Tutorial"
 subtitle: "Full-Text Search for Your Zotero Library"
-date: "Updated for ZotGrep 3.2"
+date: 2026-09-16
+date-format: long
 format:
   revealjs:
     theme: dark
@@ -37,23 +38,6 @@ A Python tool that lets you **search across your Zotero library** — both metad
 . . .
 
 > You can use Stage 1 alone (metadata-only) or both stages together.
-
----
-
-## What's New in 3.2 {.smaller}
-
-::: {.incremental}
-- **Boolean metadata search**: combine alternatives with `OR` or commas, require terms with `AND`, and match exact `"quoted phrases"`
-- **Clearer warnings**: ZotGrep tells you when a search hit the result limit or when attachments could not be read, so you know results may be incomplete
-- **More reliable PDF reading**: Zotero-stored PDFs are read directly from their local file
-- **Faster connection on Windows**: ZotGrep now connects to Zotero via `127.0.0.1`, avoiding slow IPv6 retries
-- **Python 3.11+** is now required
-:::
-
-::: {.callout-tip}
-## Already installed?
-Upgrade with `uv tool upgrade zotgrep`
-:::
 
 # Part 1: Installation {background-color="#0984e3"}
 
@@ -548,8 +532,6 @@ zotgrep --zotero "term" --config /path/to/config.json
 | Zotero links | Clickable | In output files |
 | Full-text source toggle | No (uses default) | Yes (`--fulltext-source`) |
 
----
-
 # Quick Start Cheat Sheet {background-color="#2d3436"}
 
 ```bash
@@ -584,6 +566,18 @@ uv tool upgrade zotgrep
 ## Feedback welcome!
 Open an issue on GitHub if you have questions or feature requests.
 :::
+
+## What's New in 3.2 {.smaller}
+
+::: {.incremental}
+- **Boolean metadata search**: combine alternatives with `OR` or commas, require terms with `AND`, and match exact `"quoted phrases"`
+- **Clearer warnings**: ZotGrep tells you when a search hit the result limit or when attachments could not be read, so you know results may be incomplete
+- **More reliable PDF reading**: Zotero-stored PDFs are read directly from their local file
+- **Faster connection on Windows**: ZotGrep now connects to Zotero via `127.0.0.1`, avoiding slow IPv6 retries
+- **Python 3.11+** is now required
+:::
+
+> Already installed? Run `uv tool upgrade zotgrep`.
 
 # Thank you! {background-color="#2d3436"}
 
