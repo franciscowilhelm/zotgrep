@@ -1,92 +1,100 @@
-# Publishing ZotGrep with uv / PyPI
+# Publishing ZotGrep
+
+ZotGrep is released to [PyPI](https://pypi.org/project/zotgrep/) by GitHub Actions. Publishing a GitHub release runs `.github/workflows/python-publish.yml`, which:
+
+1. runs the test suite (`.github/workflows/test.yml`) on Python 3.11–3.14 against `uv.lock`,
+2. checks that the release tag matches the version in `pyproject.toml` (tag `v3.2.0` ↔ `version = "3.2.0"`),
+3. builds the sdist and wheel and validates them with `twine check --strict`,
+4. uploads them to PyPI with [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) through the protected `pypi` environment.
+
+No PyPI API token is stored anywhere. Do not publish from a local machine with `uv publish`.
 
 ## Prerequisites
 
-- Install [uv](https://docs.astral.sh/uv/getting-started/installation/) (one command: `curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- Create a [PyPI account](https://pypi.org/account/register/)
-- Generate a PyPI API token at https://pypi.org/manage/account/token/
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) and the [GitHub CLI](https://cli.github.com/) (`gh`)
+- One-time setup (already done for this repository):
+  - PyPI → zotgrep → *Publishing*: trusted publisher for `franciscowilhelm/zotgrep`, workflow `python-publish.yml`, environment `pypi`
+  - GitHub → *Settings → Environments*: an environment named `pypi` (optionally with required reviewers)
+  - Recommended: a branch ruleset on `main` that requires pull requests and the `Tests` checks to pass
 
-## 1. Prepare the package
+`pyproject.toml` is the single source of truth for version, dependencies, scripts, and license metadata.
 
-### Add a LICENSE file
+## Release procedure
 
-The repo now uses **GPLv3**. Keep the `LICENSE` file and `pyproject.toml` aligned so PyPI and license scanners detect the same license metadata everywhere.
+1. **Prepare a release branch** from up-to-date `main`:
 
-### Use `pyproject.toml` as the single source of truth
+   ```bash
+   git switch main && git pull
+   git switch -c release-X.Y.Z
+   ```
 
-Modern `pip` and `uv` use `pyproject.toml`. Keep version, dependencies, scripts, and license metadata there and avoid reintroducing duplicate packaging metadata elsewhere.
+2. **Bump the version** (updates `pyproject.toml` and `uv.lock` together):
 
-### Check the package name
+   ```bash
+   uv version X.Y.Z
+   ```
 
-Search [PyPI](https://pypi.org/search/?q=zotgrep) to confirm `zotgrep` is not already taken. If it is, consider `zotgreper` or `zot-search`.
+   Follow [semantic versioning](https://semver.org/): patch for fixes, minor for new features, major for breaking changes.
 
-## 2. Build
+3. **Update `CHANGELOG.md`**: rename the `Unreleased` heading to `## X.Y.Z - YYYY-MM-DD`.
 
-```bash
-uv build
-```
+4. **Verify locally**:
 
-This creates `dist/zotgrep-3.0.0.tar.gz` and `dist/zotgrep-3.0.0-py3-none-any.whl`.
+   ```bash
+   uv run --locked --group test pytest -q
+   rm -rf dist && uv build
+   uvx twine check --strict dist/*
+   ```
 
-## 3. Test on TestPyPI first
+5. **Open and merge a pull request** into `main` once the `Tests` checks are green:
 
-```bash
-uv publish --publish-url https://test.pypi.org/legacy/ --token pypi-YOUR_TEST_TOKEN
-```
+   ```bash
+   git commit -am "Release X.Y.Z"
+   git push -u origin release-X.Y.Z
+   gh pr create --base main --title "Release X.Y.Z" --fill
+   gh pr merge --merge --delete-branch
+   ```
 
-Then verify:
-```bash
-uvx --index-url https://test.pypi.org/simple/ zotgrep --version
-```
+6. **Tag the merge commit and publish the GitHub release**. The release notes are the changelog section for this version:
 
-## 4. Publish to PyPI
+   ```bash
+   git switch main && git pull
+   git tag -a vX.Y.Z -m "zotgrep X.Y.Z"
+   git push origin vX.Y.Z
+   gh release create vX.Y.Z --verify-tag --title "vX.Y.Z" --notes-file <notes.md>
+   ```
 
-```bash
-uv publish --token pypi-YOUR_TOKEN
-```
+7. **Watch the workflow and confirm the upload**:
 
-## 5. Users install and run
+   ```bash
+   gh run watch "$(gh run list --workflow python-publish.yml -L 1 --json databaseId -q '.[0].databaseId')" --exit-status
+   uvx --refresh zotgrep@X.Y.Z --version
+   ```
+
+### Pre-releases
+
+Releases marked as *pre-release* on GitHub run the tests and build but are **not** uploaded to PyPI.
+
+### If publishing fails
+
+- **Tag/version mismatch**: delete the release and tag (`gh release delete vX.Y.Z --cleanup-tag`), fix the version on `main`, and tag again.
+- **Tests fail**: fix on `main` through a pull request, then recreate the release on the new commit.
+- PyPI never accepts the same version twice. If a broken build was already uploaded, yank it on PyPI and release the next patch version.
+
+## Users install and run
 
 ```bash
 # Option A: one-shot run, no install
 uvx zotgrep --web
 
-# Option B: install into a project
-uv add zotgrep
+# Option B: install as a tool
+uv tool install zotgrep
 zotgrep --web
 
 # Option C: traditional pip
 pip install zotgrep
 zotgrep --web
 ```
-
-## 6. Updating
-
-1. Bump version in `pyproject.toml`
-2. `uv build`
-3. `uv publish --token pypi-YOUR_TOKEN`
-
-## 7. Optional: GitHub Actions release workflow
-
-Add `.github/workflows/publish.yml` to auto-publish on tag push:
-
-```yaml
-name: Publish to PyPI
-on:
-  push:
-    tags: ["v*"]
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v4
-      - run: uv build
-      - run: uv publish --token ${{ secrets.PYPI_TOKEN }}
-```
-
-Store your PyPI token as a GitHub Actions secret named `PYPI_TOKEN`.
 
 ---
 
