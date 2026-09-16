@@ -12,6 +12,7 @@ from pyzotero import zotero
 
 from .config import ZotGrepConfig
 from .pdf_processor import PDFProcessor
+from .local_files import read_stored_attachment
 from .text_analyzer import (
     FullTextQuery,
     MetadataQueryParser,
@@ -756,21 +757,40 @@ class ZoteroSearchEngine:
                 print(f"    {warning}")
                 return None
             
-            return self.pdf_processor.process_linked_pdf(
+            text = self.pdf_processor.process_linked_pdf(
                 self.config.base_attachment_path,
                 pdf_info['path']
             )
+            if text is None:
+                self.warnings.append(
+                    f"Skipped linked PDF {pdf_info['key']}: the file is missing, "
+                    "unreadable, or could not be processed. Results may be incomplete."
+                )
+            return text
             
         elif link_mode in {'imported_file', 'imported_url'}:
             try:
-                pdf_bytes_content = self.zot_conn.file(pdf_info['key'])
+                pdf_bytes_content = read_stored_attachment(self.zot_conn, pdf_info['key'])
                 if not pdf_bytes_content:
                     return None
                 
                 return self.pdf_processor.process_imported_pdf(pdf_bytes_content)
                 
+            except FileNotFoundError:
+                warning = (
+                    f"Skipped stored PDF {pdf_info['key']}: its local file is missing. "
+                    "Restore or sync the attachment in Zotero. Results may be incomplete."
+                )
+                self.warnings.append(warning)
+                print(f"    {warning}")
+                return None
             except Exception as e:
-                print(f"    Error downloading or processing stored PDF {pdf_info['key']}: {e}")
+                warning = (
+                    f"Could not read stored PDF {pdf_info['key']}: {e}. "
+                    "Results may be incomplete."
+                )
+                self.warnings.append(warning)
+                print(f"    {warning}")
                 return None
         
         return None

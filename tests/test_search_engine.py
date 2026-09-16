@@ -98,7 +98,12 @@ class TestZoteroSearchEngine(unittest.TestCase):
             ZotGrepConfig(base_attachment_path="")
         )
         engine.zot_conn = Mock()
-        engine.zot_conn.file.return_value = b"%PDF-1.7"
+        engine.zot_conn.endpoint = "http://127.0.0.1:23119/api"
+        engine.zot_conn.library_type = "users"
+        engine.zot_conn.library_id = "0"
+        engine.zot_conn.request = None
+        response = Mock(status_code=200, content=b"%PDF-1.7")
+        engine.zot_conn.client.get.return_value = response
         engine.pdf_processor.process_imported_pdf = Mock(return_value={1: "page text"})
 
         result = engine._extract_pdf_text(
@@ -112,8 +117,26 @@ class TestZoteroSearchEngine(unittest.TestCase):
         )
 
         self.assertEqual(result, {1: "page text"})
-        engine.zot_conn.file.assert_called_once_with("PDF123")
+        self.assertFalse(engine.zot_conn.client.get.call_args.kwargs["follow_redirects"])
         engine.pdf_processor.process_imported_pdf.assert_called_once_with(b"%PDF-1.7")
+
+    def test_missing_stored_pdf_is_a_visible_warning(self):
+        engine = self.search_engine_module.ZoteroSearchEngine(ZotGrepConfig())
+        with patch.object(self.search_engine_module, "read_stored_attachment", side_effect=FileNotFoundError):
+            result = engine._extract_pdf_text(
+                {"key": "MISSING1", "link_mode": "imported_file"}, "Missing paper")
+        self.assertIsNone(result)
+        self.assertIn("local file is missing", engine.warnings[0])
+        self.assertIn("Results may be incomplete", engine.warnings[0])
+
+    def test_unreadable_stored_pdf_is_not_reported_as_missing(self):
+        engine = self.search_engine_module.ZoteroSearchEngine(ZotGrepConfig())
+        with patch.object(self.search_engine_module, "read_stored_attachment", side_effect=PermissionError("Access denied")):
+            result = engine._extract_pdf_text(
+                {"key": "DENIED01", "link_mode": "imported_file"}, "Unreadable paper")
+        self.assertIsNone(result)
+        self.assertIn("Access denied", engine.warnings[0])
+        self.assertNotIn("file is missing", engine.warnings[0])
 
     def test_linked_pdf_without_base_path_is_skipped(self):
         engine = self.search_engine_module.ZoteroSearchEngine(

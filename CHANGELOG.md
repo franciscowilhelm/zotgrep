@@ -9,6 +9,7 @@
 
 ### Fixed
 
+- Read stored PDFs from Zotero's original local file URL instead of following it through HTTP redirect handling. Missing or unreadable attachments now produce visible warnings that results may be incomplete.
 - Prevent Unicode paper titles from aborting searches when progress output is redirected through a Windows console encoding.
 - Connect to Zotero's local API through IPv4 loopback (`127.0.0.1`) to avoid repeated IPv6 connection failure delays on Windows.
 - Preserve implicit word-based AND matching in unquoted metadata alternatives; only quoted multi-word terms require phrase verification.
@@ -16,6 +17,7 @@
 
 ### Notes
 
+- Updated the Pyzotero minimum and lockfile to 1.15.1, including its migration to `httpx2`. Zotgrep remains compatible with Python 3.11+ and uses read-only local API access without the new local-write authorization flow.
 - The metadata result limit applies to each alternative, so merged Boolean results can exceed it.
 - Quoted phrases are verified against title, creator names, and date in Title-Author-Year mode. Everything mode retains all-words matching because indexed content is not included in metadata responses.
 
