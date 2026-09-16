@@ -989,7 +989,7 @@ class TestResultHandler(unittest.TestCase):
         mock_search_engine_instance.connect_to_zotero.return_value = True
         mock_search_engine_instance.search_zotero_and_full_text.return_value = []
 
-        test_args = ['--zotero', 'alpha AND beta', '--no-json']
+        test_args = ['--zotero', 'alpha*', '--no-json']
         with patch.object(sys, 'argv', ['zotgrep'] + test_args):
             from zotgrep.cli import main
             exit_code = main()
@@ -997,7 +997,7 @@ class TestResultHandler(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertTrue(
             any(
-                "metadata search still uses Zotero quick-search semantics" in call.args[0]
+                "wildcards ('*') and parentheses are not supported in metadata queries" in call.args[0]
                 for call in mock_print.call_args_list
                 if call.args
             )

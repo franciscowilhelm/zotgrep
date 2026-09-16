@@ -276,8 +276,9 @@ def create_app() -> Flask:
         warnings: list[str] = []
         if metadata_query_uses_unsupported_operators(zotero_query):
             warnings.append(
-                "Metadata search still uses Zotero quick-search semantics. '*', 'AND', and "
-                "'OR' are passed through unchanged and are not interpreted as operators by ZotGrep."
+                "Wildcards ('*') and parentheses are not supported in metadata queries. '*' is "
+                "passed to Zotero unchanged and matches literally; use AND, OR, commas, and "
+                "quoted phrases instead."
             )
 
         fulltext_terms: list[str] = []
@@ -1074,7 +1075,8 @@ SEARCH_CONTENT_TEMPLATE = r"""
       <label for="zotero_query">Zotero Metadata Search</label>
       <input type="text" id="zotero_query" name="zotero_query"
              value="{{ form.get('zotero_query', '') }}"
-             placeholder='e.g. "machine learning health"' required>
+             placeholder='e.g. "career engagement" OR motivation' required>
+      <small>Use AND to require both terms, or OR and commas for alternatives. AND binds tighter than OR. Quote exact phrases; unquoted words are matched together without requiring adjacency.</small>
     </div>
 
     <div class="form-group">
@@ -1083,7 +1085,7 @@ SEARCH_CONTENT_TEMPLATE = r"""
         <option value="titleCreatorYear" {{ 'selected' if form.get('metadata_search_mode', 'titleCreatorYear') == 'titleCreatorYear' else '' }}>Title, Author &amp; Year</option>
         <option value="everything" {{ 'selected' if form.get('metadata_search_mode') == 'everything' else '' }}>Everything (including Zotero-indexed content)</option>
       </select>
-      <small>&#8220;Everything&#8221; searches Zotero&#8217;s indexed attachment text in addition to metadata fields.</small>
+      <small>&#8220;Everything&#8221; searches Zotero&#8217;s indexed attachment text in addition to metadata fields. In this mode, quoted phrases match all words rather than requiring an exact phrase.</small>
     </div>
 
     <div class="form-group">
@@ -1152,6 +1154,7 @@ SEARCH_CONTENT_TEMPLATE = r"""
             <label for="max_results">Max Results</label>
             <input type="number" id="max_results" name="max_results"
                    value="{{ form.get('max_results', config.max_results_stage1) }}" min="1">
+            <small>Limit per metadata alternative; merged results can exceed this number.</small>
           </div>
           <div class="form-group">
             <label for="context_window">Context Window</label>

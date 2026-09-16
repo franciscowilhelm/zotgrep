@@ -48,7 +48,7 @@ Examples:
         parser.add_argument(
             '--zotero',
             type=str,
-            help='Zotero metadata search terms (e.g., "machine learning health")'
+            help='Zotero metadata query: AND, OR, commas, and double-quoted phrases are supported'
         )
 
         parser.add_argument(
@@ -189,7 +189,7 @@ Examples:
             '--max-results',
             type=int,
             default=100,
-            help='Maximum results for metadata search (default: 100)'
+            help='Maximum results per metadata search alternative (default: 100)'
         )
         
         parser.add_argument(
@@ -452,9 +452,9 @@ Examples:
 
             if metadata_query_uses_unsupported_operators(metadata_query):
                 print(
-                    "Warning: metadata search still uses Zotero quick-search semantics. "
-                    "'*', 'AND', and 'OR' are passed through unchanged and are not interpreted "
-                    "as operators by ZotGrep."
+                    "Warning: wildcards ('*') and parentheses are not supported in metadata "
+                    "queries. '*' is passed to Zotero unchanged and matches literally; use AND, "
+                    "OR, commas, and quoted phrases instead."
                 )
 
             full_text_terms: List[str] = []
@@ -524,6 +524,12 @@ def main() -> int:
     Returns:
         Exit code
     """
+    # Redirected Windows consoles may use cp1252. A title that cannot be
+    # represented there must not abort a CLI or web search while logging.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(errors="backslashreplace")
     cli = ZotGrepCLI()
     return cli.run()
 

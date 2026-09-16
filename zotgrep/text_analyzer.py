@@ -35,6 +35,10 @@ class FullTextNode:
     def evaluate(self, text: str) -> Optional[set[str]]:
         raise NotImplementedError
 
+    def to_dnf(self) -> List[List[str]]:
+        """Convert this node to disjunctive normal form (OR of AND-groups)."""
+        raise NotImplementedError
+
 
 @dataclass(frozen=True)
 class FullTextTermNode(FullTextNode):
@@ -44,6 +48,9 @@ class FullTextTermNode(FullTextNode):
         if self.term.matches(text):
             return {self.term.raw}
         return None
+
+    def to_dnf(self) -> List[List[str]]:
+        return [[self.term.raw]]
 
 
 @dataclass(frozen=True)
@@ -60,6 +67,19 @@ class FullTextAndNode(FullTextNode):
             return None
         return left_match | right_match
 
+    def to_dnf(self) -> List[List[str]]:
+        left_branches = self.left.to_dnf()
+        right_branches = self.right.to_dnf()
+        merged_branches: List[List[str]] = []
+        for left_branch in left_branches:
+            for right_branch in right_branches:
+                merged_branch = list(left_branch)
+                for term in right_branch:
+                    if term not in merged_branch:
+                        merged_branch.append(term)
+                merged_branches.append(merged_branch)
+        return merged_branches
+
 
 @dataclass(frozen=True)
 class FullTextOrNode(FullTextNode):
@@ -72,6 +92,9 @@ class FullTextOrNode(FullTextNode):
         if left_match is None and right_match is None:
             return None
         return (left_match or set()) | (right_match or set())
+
+    def to_dnf(self) -> List[List[str]]:
+        return self.left.to_dnf() + self.right.to_dnf()
 
 
 @dataclass(frozen=True)
@@ -97,6 +120,10 @@ class FullTextQuery:
             if candidate.raw == term:
                 return candidate.pattern
         return compile_full_text_term_pattern(term)
+
+    def to_dnf(self) -> List[List[str]]:
+        """Convert the parsed query to disjunctive normal form (OR of AND-groups)."""
+        return self.root.to_dnf()
 
 
 def compile_full_text_term_pattern(term: str) -> re.Pattern[str]:
@@ -125,8 +152,13 @@ def compile_full_text_term_pattern(term: str) -> re.Pattern[str]:
 
 
 def metadata_query_uses_unsupported_operators(query: str) -> bool:
-    """Detect operator-like syntax that Zotero quick search does not support."""
-    return bool(re.search(r"\*|\bAND\b|\bOR\b", query or "", re.IGNORECASE))
+    """Detect syntax that metadata search still does not support: '*' wildcards and parentheses."""
+    return bool(re.search(r"[*()]", query or ""))
+
+
+def metadata_query_is_boolean(query: str) -> bool:
+    """Detect boolean query syntax (comma/quote/AND/OR) that should be parsed as DNF."""
+    return bool(re.search(r'[,"]|\b(?:AND|OR)\b', query or "", re.IGNORECASE))
 
 
 class FullTextQueryParser:
@@ -252,6 +284,26 @@ class FullTextQueryParser:
 
     def _is_or(self, token: str) -> bool:
         return token == "," or token.upper() == "OR"
+
+
+class MetadataQueryParser(FullTextQueryParser):
+    """Preserve Zotero's implicit AND between unquoted words in each branch."""
+
+    def _parse_term(self) -> FullTextNode:
+        token = self._peek()
+        node = super()._parse_term()
+        if token.startswith('"'):
+            return node
+
+        # Full-text search treats an unquoted run of words as a phrase.
+        # Metadata quick search instead allows the words in separate fields.
+        words = self.terms.pop().raw.split()
+        terms = [FullTextTerm(word) for word in words]
+        self.terms.extend(terms)
+        node = FullTextTermNode(terms[0])
+        for term in terms[1:]:
+            node = FullTextAndNode(node, FullTextTermNode(term))
+        return node
 
 
 def parse_full_text_query(query: str | List[str] | FullTextQuery) -> FullTextQuery:

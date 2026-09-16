@@ -12,7 +12,14 @@ from pyzotero import zotero
 
 from .config import ZotGrepConfig
 from .pdf_processor import PDFProcessor
-from .text_analyzer import FullTextQuery, TextAnalyzer, parse_full_text_query
+from .local_files import read_stored_attachment
+from .text_analyzer import (
+    FullTextQuery,
+    MetadataQueryParser,
+    TextAnalyzer,
+    metadata_query_is_boolean,
+    parse_full_text_query,
+)
 from .result_handler import ResultHandler
 
 
@@ -68,6 +75,9 @@ class ZoteroSearchEngine:
                 self.config.zotero_api_key,
                 local=True,
             )
+            # Zotero listens on IPv4 loopback. On Windows, localhost may try
+            # ::1 first and incur a connection failure delay on every request.
+            self.zot_conn.endpoint = "http://127.0.0.1:23119/api"
             
             # Test connection
             self.zot_conn.top(limit=1)
@@ -253,17 +263,10 @@ class ZoteroSearchEngine:
                 resolved_collection,
             )
 
-            if len(items) >= self.config.max_results_stage1:
-                cli_warning = (
-                    f"Metadata search returned {len(items)} results, which equals the current "
-                    f"limit of {self.config.max_results_stage1}. Some matching references may "
-                    f"have been omitted. Consider raising --max-results or narrowing your query."
-                )
-                web_warning = (
-                    f"Metadata search returned {len(items)} results, which equals the current "
-                    f"limit of {self.config.max_results_stage1}. Some matching references may "
-                    f"have been omitted. Consider raising the Max Results limit in Advanced Search Settings "
-                    f"or narrowing your query."
+            if not metadata_query_is_boolean(search_terms) and len(items) >= self.config.max_results_stage1:
+                cli_warning, web_warning = self._build_stage1_limit_warnings(
+                    len(items),
+                    filters,
                 )
                 self.warnings.append(web_warning)
                 print(f"  Warning: {cli_warning}")
@@ -283,14 +286,114 @@ class ZoteroSearchEngine:
             print(f"Error during Zotero metadata search: {e}")
             return []
 
+    def _build_stage1_limit_warnings(
+        self,
+        item_count: int,
+        filters: MetadataFilters,
+    ) -> Tuple[str, str]:
+        cli_warning = (
+            f"Metadata search returned {item_count} results, which equals the current "
+            f"limit of {self.config.max_results_stage1}. Some matching references may "
+            f"have been omitted. Consider raising --max-results or narrowing your query."
+        )
+        web_warning = (
+            f"Metadata search returned {item_count} results, which equals the current "
+            f"limit of {self.config.max_results_stage1}. Some matching references may "
+            f"have been omitted. Consider raising the Max Results limit in Advanced Search Settings "
+            f"or narrowing your query."
+        )
+
+        if filters.publication_titles:
+            suffix = (
+                " Publication title filtering is applied client-side after the API response, "
+                "so additional matches in the requested publication(s) may have been missed."
+            )
+            cli_warning += suffix
+            web_warning += suffix
+
+        return cli_warning, web_warning
+
     def _fetch_metadata_items(
         self,
         search_terms: str,
         filters: MetadataFilters,
         resolved_collection: Optional[ResolvedCollection],
     ) -> List[Dict[str, Any]]:
+        """
+        Fetch Zotero metadata items for the given search terms.
+
+        If ``search_terms`` contains no boolean syntax (comma, quotes, AND/OR),
+        a single API call is issued with the verbatim string, matching the
+        pre-boolean-search behavior exactly.
+
+        Otherwise the query is parsed with ``MetadataQueryParser``, converted
+        to disjunctive normal form (OR of AND-groups), and one API call is
+        issued per OR-branch (space-joining the branch's terms, since Zotero
+        quick search implicitly ANDs space-separated words). Results are
+        unioned across branches, deduplicated by item key.
+        """
+        if not metadata_query_is_boolean(search_terms):
+            return self._fetch_metadata_items_for_query(
+                search_terms,
+                filters,
+                resolved_collection,
+            )
+
+        try:
+            parsed_query = MetadataQueryParser(search_terms).parse()
+        except ValueError as exc:
+            raise ValueError(
+                f"The metadata query '{search_terms}' could not be parsed as a "
+                f"boolean query: {exc}"
+            ) from exc
+
+        branches = parsed_query.to_dnf()
+        merged_items: List[Dict[str, Any]] = []
+        seen_keys: set[str] = set()
+
+        for branch_terms in branches:
+            branch_query = " ".join(branch_terms)
+            branch_items = self._fetch_metadata_items_for_query(
+                branch_query,
+                filters,
+                resolved_collection,
+            )
+
+            if len(branch_items) >= self.config.max_results_stage1:
+                warning = (
+                    f"Metadata sub-search '{branch_query}' returned {len(branch_items)} "
+                    f"results, which equals the current limit of "
+                    f"{self.config.max_results_stage1}; some matching references may "
+                    f"have been omitted."
+                )
+                self.warnings.append(warning)
+                print(f"  Warning: {warning}")
+
+            branch_items = self._verify_phrase_terms_client_side(branch_items, branch_terms)
+
+            for item in branch_items:
+                item_key = item.get("data", {}).get("key")
+                if item_key is not None and item_key in seen_keys:
+                    continue
+                if item_key is not None:
+                    seen_keys.add(item_key)
+                merged_items.append(item)
+
+        print(
+            f"Ran {len(branches)} metadata sub-search(es) for boolean query "
+            f"'{search_terms}'; merged into {len(merged_items)} unique result(s)."
+        )
+        return merged_items
+
+    def _fetch_metadata_items_for_query(
+        self,
+        query: str,
+        filters: MetadataFilters,
+        resolved_collection: Optional[ResolvedCollection],
+    ) -> List[Dict[str, Any]]:
+        """Issue a single Zotero quick-search API call, routed by active filters."""
         kwargs: Dict[str, Any] = {
-            "q": search_terms,
+            "q": query,
             "limit": self.config.max_results_stage1,
             "qmode": self.config.metadata_search_mode,
         }
@@ -309,6 +412,74 @@ class ZoteroSearchEngine:
 
         kwargs["itemType"] = "-attachment"
         return self.zot_conn.items(**kwargs)
+
+    def _verify_phrase_terms_client_side(
+        self,
+        items: List[Dict[str, Any]],
+        branch_terms: List[str],
+    ) -> List[Dict[str, Any]]:
+        """
+        Verify multi-word (phrase) terms client-side for a metadata sub-search branch.
+
+        Zotero's ``q`` parameter matches individual words, not phrases, so a
+        quick search for a quoted phrase like "career engagement" can return
+        items that merely contain both words somewhere, not adjacent. This
+        only matters in ``titleCreatorYear`` mode, where the fields Zotero
+        matched against (title, creator names, date) are cheaply available on
+        the item payload already returned. In ``everything`` mode the match
+        may come from indexed full-text content that isn't present on the
+        item payload, so verification is skipped there.
+
+        A term is treated as a phrase candidate if it contains whitespace
+        (multi-word terms only arise from quoted phrases in the boolean
+        grammar). Items failing verification for any phrase term are dropped.
+        """
+        if self.config.metadata_search_mode != "titleCreatorYear":
+            return items
+
+        phrase_terms = [term for term in branch_terms if re.search(r"\s", term)]
+        if not phrase_terms:
+            return items
+
+        verified_items = []
+        for item in items:
+            if all(self._item_matches_phrase(item, term) for term in phrase_terms):
+                verified_items.append(item)
+        return verified_items
+
+    def _item_matches_phrase(self, item: Dict[str, Any], phrase: str) -> bool:
+        """Check whether an item's title, creators, or date contain a phrase."""
+        # Metadata does not support the full-text engine's '*' wildcards.
+        literal_phrase = r"\s+".join(re.escape(word) for word in phrase.split())
+        if phrase[0].isalnum():
+            literal_phrase = r"\b" + literal_phrase
+        if phrase[-1].isalnum():
+            literal_phrase += r"\b"
+        pattern = re.compile(literal_phrase, re.IGNORECASE)
+        data = item.get("data", {})
+
+        title = data.get("title", "") or ""
+        if pattern.search(title):
+            return True
+
+        date = data.get("date", "") or ""
+        if pattern.search(date):
+            return True
+
+        for creator in data.get("creators", []):
+            name_parts = [
+                str(creator.get("firstName", "") or ""),
+                str(creator.get("lastName", "") or ""),
+            ]
+            full_name = " ".join(part for part in name_parts if part).strip()
+            if full_name and pattern.search(full_name):
+                return True
+
+            single_name = str(creator.get("name", "") or "")
+            if single_name and pattern.search(single_name):
+                return True
+
+        return False
 
     def _resolve_collection_filter(
         self,
@@ -586,21 +757,40 @@ class ZoteroSearchEngine:
                 print(f"    {warning}")
                 return None
             
-            return self.pdf_processor.process_linked_pdf(
+            text = self.pdf_processor.process_linked_pdf(
                 self.config.base_attachment_path,
                 pdf_info['path']
             )
+            if text is None:
+                self.warnings.append(
+                    f"Skipped linked PDF {pdf_info['key']}: the file is missing, "
+                    "unreadable, or could not be processed. Results may be incomplete."
+                )
+            return text
             
         elif link_mode in {'imported_file', 'imported_url'}:
             try:
-                pdf_bytes_content = self.zot_conn.file(pdf_info['key'])
+                pdf_bytes_content = read_stored_attachment(self.zot_conn, pdf_info['key'])
                 if not pdf_bytes_content:
                     return None
                 
                 return self.pdf_processor.process_imported_pdf(pdf_bytes_content)
                 
+            except FileNotFoundError:
+                warning = (
+                    f"Skipped stored PDF {pdf_info['key']}: its local file is missing. "
+                    "Restore or sync the attachment in Zotero. Results may be incomplete."
+                )
+                self.warnings.append(warning)
+                print(f"    {warning}")
+                return None
             except Exception as e:
-                print(f"    Error downloading or processing stored PDF {pdf_info['key']}: {e}")
+                warning = (
+                    f"Could not read stored PDF {pdf_info['key']}: {e}. "
+                    "Results may be incomplete."
+                )
+                self.warnings.append(warning)
+                print(f"    {warning}")
                 return None
         
         return None

@@ -1,5 +1,26 @@
 # Changelog
 
+## 3.2.0 - 2026-09-16
+
+### Added
+
+- Boolean metadata queries with `AND`, `OR`, comma-separated alternatives, and quoted phrases. Results are deduplicated across alternatives; `AND` takes precedence over `OR`.
+- Warnings when individual metadata searches reach the result limit, including the effect of client-side publication filtering.
+
+### Fixed
+
+- Read stored PDFs from Zotero's original local file URL instead of following it through HTTP redirect handling. Missing or unreadable attachments now produce visible warnings that results may be incomplete.
+- Prevent Unicode paper titles from aborting searches when progress output is redirected through a Windows console encoding.
+- Connect to Zotero's local API through IPv4 loopback (`127.0.0.1`) to avoid repeated IPv6 connection failure delays on Windows.
+- Preserve implicit word-based AND matching in unquoted metadata alternatives; only quoted multi-word terms require phrase verification.
+- Keep asterisks literal during metadata phrase verification instead of interpreting them as full-text wildcards.
+
+### Notes
+
+- Updated the Pyzotero minimum and lockfile to 1.15.1, including its migration to `httpx2`. Zotgrep remains compatible with Python 3.11+ and uses read-only local API access without the new local-write authorization flow.
+- The metadata result limit applies to each alternative, so merged Boolean results can exceed it.
+- Quoted phrases are verified against title, creator names, and date in Title-Author-Year mode. Everything mode retains all-words matching because indexed content is not included in metadata responses.
+
 ## 3.1.2 - 2026-04-10
 
 ### Added
