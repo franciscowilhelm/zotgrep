@@ -188,15 +188,13 @@ Examples:
         parser.add_argument(
             '--max-results',
             type=int,
-            default=100,
-            help='Maximum results per metadata search alternative (default: 100)'
+            help='Maximum results per metadata search alternative (default: config or 100)'
         )
         
         parser.add_argument(
             '--context-window',
             type=int,
-            default=2,
-            help='Context sentence window size (default: 2)'
+            help='Context sentence window size (default: config or 2)'
         )
         
         parser.add_argument(
@@ -290,10 +288,10 @@ Examples:
         if args.base_path:
             config.base_attachment_path = args.base_path
         
-        if args.max_results:
+        if args.max_results is not None:
             config.max_results_stage1 = args.max_results
         
-        if args.context_window:
+        if args.context_window is not None:
             config.context_sentence_window = args.context_window
 
         if args.publication_title:
